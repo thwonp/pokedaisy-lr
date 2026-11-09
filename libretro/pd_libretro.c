@@ -4,30 +4,10 @@
  * mGBA's entry points are renamed with the preprocessor while its file is included, so this file can
  * define the real retro_* functions around them and reach its static state (core, data, outputBuffer)
  * without editing a line of upstream. */
-#define retro_set_environment mgba_retro_set_environment
-#define retro_set_video_refresh mgba_retro_set_video_refresh
-#define retro_set_input_state mgba_retro_set_input_state
-#define retro_get_system_info mgba_retro_get_system_info
-#define retro_get_system_av_info mgba_retro_get_system_av_info
-#define retro_run mgba_retro_run
-#define retro_load_game mgba_retro_load_game
-#define retro_unload_game mgba_retro_unload_game
-#define retro_unserialize mgba_retro_unserialize
-#define retro_reset mgba_retro_reset
 #ifdef __ARM_NEON
 #include <arm_neon.h>
 #endif
-#include "libretro.c"
-#undef retro_set_environment
-#undef retro_set_video_refresh
-#undef retro_set_input_state
-#undef retro_get_system_info
-#undef retro_get_system_av_info
-#undef retro_run
-#undef retro_load_game
-#undef retro_unload_game
-#undef retro_unserialize
-#undef retro_reset
+#include "pd_backend.h"
 
 #include "field_items.h"
 #include "fly.h"
@@ -81,7 +61,7 @@ static retro_video_refresh_t realVideo;
 static retro_input_state_t realInput;
 static bool optionsDirty;
 
-static const char *option(const char *key) {
+static const char *pd_option(const char *key) {
   struct retro_variable v = {key, NULL};
   return realEnv && realEnv(RETRO_ENVIRONMENT_GET_VARIABLE, &v) && v.value ? v.value : NULL;
 }
@@ -643,14 +623,14 @@ static void canvas_for(int fw, int fh, int kind, int *w, int *h) {
 }
 
 static void choose_canvas(void) {
-  const char *v = option("pokedaisy_canvas");
+  const char *v = pd_option("pokedaisy_canvas");
   int w = 320, h = 240;
   if (v && sscanf(v, "%dx%d", &w, &h) != 2)
     w = 320, h = 240;
   CWMAX = w < 320 ? 320 : w > CANVAS_MAX_W ? CANVAS_MAX_W : w;
   CHMAX = h < 240 ? 240 : h > CANVAS_MAX_H ? CANVAS_MAX_H : h;
   panelW = panelH = 0;
-  v = option("pokedaisy_panel");
+  v = pd_option("pokedaisy_panel");
   if (v && sscanf(v, "%dx%d", &panelW, &panelH) == 2 && panelW > 0 && panelH > 0) {
     struct retro_system_av_info av;
     mgba_retro_get_system_av_info(&av);
@@ -703,8 +683,7 @@ RETRO_API void retro_set_environment(retro_environment_t e) {
 }
 /* What the capture of mGBA's own video call records: the size; the pixels stay in outputBuffer. */
 static void capture_video(const void *d, unsigned w, unsigned h, size_t pitch) {
-  (void)d;
-  (void)pitch;
+  PD_BE_CAPTURE(d, w, h, pitch);
   gameW = w;
   gameH = h;
 }
@@ -733,6 +712,7 @@ RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info) {
 RETRO_API bool retro_load_game(const struct retro_game_info *g) {
   if (!mgba_retro_load_game(g))
     return false;
+  PD_BE_AFTER_LOAD(g);
   choose_canvas();
   read_options();
   {
@@ -746,16 +726,16 @@ RETRO_API bool retro_load_game(const struct retro_game_info *g) {
     return false;
   pd_canvas_init(&canvas, CW, CH, cvs);
   uint32_t crc = 0;
-  core->checksum(core, &crc, mCHECKSUM_CRC32);
-  const unsigned char *rom = data;
-  size_t len = dataSize;
+  PD_BE_CRC32(&crc);
+  const unsigned char *rom = PD_BE_ROM();
+  size_t len = PD_BE_ROM_LEN();
   pd_game_detect(&game, rom, len);
   game.rom = rom;
   game.romSize = len;
   pd_game_identify(&game);
   fprintf(stderr, "pokedaisy: %s, sha1 %s%s%s\n", game.title ? game.title : "?", game.sha1[0] ? game.sha1 : "-",
           game.unsupported ? " - " : "", game.unsupported ? game.unsupported : "");
-  if (core->platform(core) == mPLATFORM_GBA)
+  if (PD_BE_IS_GBA())
     pd_romart_scan(&game);
   const char *dir = NULL;
   if (realEnv(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) && dir && *dir) {
@@ -787,7 +767,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *g) {
   wideSupported = pk_wide_configure(crc) != 0;
   wideReady = false;
   canvas_update(false);
-  fieldKnown = core->platform(core) == mPLATFORM_GBA && pk_field_configure(crc);
+  fieldKnown = PD_BE_IS_GBA() && pk_field_configure(crc);
   wildSwitch = fieldKnown ? pk_wild_switch_find(rom, len) : 0;
   if (wildSwitch)
     pk_field_wild(wildSwitch, settings.wildOff);
@@ -795,7 +775,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *g) {
   fieldFlags = 0;
   romData = rom;
   romLen = len;
-  bool gba = core->platform(core) == mPLATFORM_GBA;
+  bool gba = PD_BE_IS_GBA();
   flyCfg = game.cfg && gba && fly_supported(game.cfg, rom, len) ? game.cfg : NULL;
   itemsOk = game.cfg && gba && field_items_supported(game.cfg, rom, len);
   pcOk = itemsOk && pc_supported(game.cfg, rom, len);
@@ -817,7 +797,7 @@ RETRO_API bool retro_load_game(const struct retro_game_info *g) {
   host.hasButtonRows = true;
   host.frontendOwnsPlayback = true;
   // The Game Boy games get the HUD where the field scene is known (English Yellow, Crystal: pk_wide_gb), as in the app.
-  host.hasHud = core->platform(core) == mPLATFORM_GBA || wideSupported;
+  host.hasHud = PD_BE_IS_GBA() || wideSupported;
   host.hasExpand = true;
   host.expandGame = wideSupported;
   host.count = 1;
@@ -953,8 +933,7 @@ RETRO_API void retro_run(void) {
   hudBtn = key_of(settings.hudBtn);
   // The frontend's poll, every frame: mGBA's run polls only when the game runs, and the layer pauses it (companion,
   // quick menu, HUD cursor), where a frontend that refreshes the pad in its poll left every button frozen.
-  if (inputPollCallback)
-    inputPollCallback();
+  PD_BE_INPUT_POLL();
   poll_keys();
   touch_poll();
   // A tap on the quick menu: a tile (or a FLY / REPEL list row) is picked as A picks it; outside, the list or the menu
@@ -1287,7 +1266,7 @@ RETRO_API void retro_run(void) {
     pf_add(PF_RUN, pb - pa);
     if (gameKeyFrames > 0)
       gameKeyFrames--;
-    if (core->platform(core) == mPLATFORM_GBA)
+    if (PD_BE_IS_GBA())
       pk_rest_note(core);
     if (fieldKnown)
       fieldFlags = pk_field_state(core, settings.runIndoors, wildSwitch && settings.wildOff ? 0 : 100);
@@ -1315,7 +1294,7 @@ RETRO_API void retro_run(void) {
     pf_add(PF_WIDE, pc - pb);
   } else {
     static const int16_t silence[2 * 1024];
-    audioCallback(silence, 549);
+    PD_BE_AUDIO(silence, 549);
   }
 
   if (!snap.valid || (companion && !wasCompanion) || (!companion && frames % 30 == 0))
@@ -1477,7 +1456,7 @@ RETRO_API void retro_run(void) {
       draw_game_fast();
     else
       draw_game();
-    bool gb = core->platform(core) == mPLATFORM_GB;
+    bool gb = PD_BE_IS_GB();
     bool field = gb ? wideSupported && pk_wide_scene() == PK_WIDE_SCENE_FIELD && !snap.inBattle && flyStage == 0
                     : (fieldFlags & PK_FIELD_KNOWN) && !(fieldFlags & (PK_FIELD_LOCKED | PK_FIELD_BATTLE)) &&
                           (!wideSupported || pk_wide_scene() == PK_WIDE_SCENE_FIELD) && flyStage == 0;
