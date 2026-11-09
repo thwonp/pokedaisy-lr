@@ -52,11 +52,12 @@ set(PD ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(APP ${PD}/../app/src/main/cpp)
 file(GLOB PD_CORE CONFIGURE_DEPENDS ${PD}/../3ds/core/*.c)
 add_library(pokedaisy_armgba_libretro SHARED ${AG_GLUE}
-  ${PD}/pd_libretro.c ${PD}/pd_lr_mem_agba.c ${PD}/pd_agba_view.c ${APP}/pk_wide.c ${PD}/pd_agba_gb_stub.c ${PD}/pd_agba_stubs.c ${PD_CORE}
+  ${PD}/pd_libretro.c ${PD}/pd_lr_mem_agba.c ${PD}/pd_agba_view.c ${PD}/pd_agba_call.c ${APP}/pk_wide.c ${PD}/../linux/fly.c ${PD}/../linux/field_items.c ${PD}/pd_agba_gb_stub.c ${PD}/pd_agba_stubs.c ${PD_CORE}
   ${PD}/../linux/hud.c ${PD}/../linux/quick_menu.c ${PD}/../linux/wild.c)
 set_source_files_properties(${PD}/pd_libretro.c PROPERTIES COMPILE_OPTIONS "-Wno-unused-function")
 # pk_wide.c is the app's own file, written against mGBA's headers: shim/ gives it the view's types under mGBA's names.
-set_source_files_properties(${APP}/pk_wide.c PROPERTIES COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/shim/pd_names.h;-Wno-unused-parameter")
+set_source_files_properties(${APP}/pk_wide.c ${PD}/../linux/fly.c ${PD}/../linux/field_items.c PROPERTIES
+  COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/shim/pd_names.h;-Wno-unused-parameter")
 set_target_properties(pokedaisy_armgba_libretro PROPERTIES PREFIX "" COMPILE_DEFINITIONS "PD_ARMGBA=1;_GNU_SOURCE")
 target_include_directories(pokedaisy_armgba_libretro PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/shim ${ARMGBA}/libretro ${ARMGBA}/src ${ARMGBA}/libretro/deps/libretro-common/include

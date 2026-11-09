@@ -614,6 +614,68 @@ static void wide_check_report(void) {
 #define WIDE_CHECK_REPORT() ((void)0)
 #endif
 
+#ifdef PD_CALLTEST
+/* A test build's check of the game-call layer (pk_call): FLY's own first question, asked every 300 frames from the 2500th
+ * while the field is free, through the real functions (the game's FlagGet and its Fly set-up); the result codes, towns and,
+ * on armGBA, the steps each call took are printed, and the player's last position at unload. The same on both cores, one
+ * save: their answers must agree, and the game must go on as before. */
+static int ctFrame, ctCalls, ctStage, ctWait, ctMapsec;
+static uint32_t ctCallback;
+static struct fly_targets ctT;
+#ifdef PD_ARMGBA
+long pk_call_last_steps(void);
+#define CT_STEPS() pk_call_last_steps()
+#else
+#define CT_STEPS() 0L
+#endif
+static void call_test(bool busy, bool battle) {
+  ctFrame++;
+#ifdef PD_CALLTEST_PC
+  /* PC anywhere: the game's own PC menu, opened by a script written to EWRAM and run by the game (pc_open). Once, frame 3000. */
+  if (flyCfg && ctFrame == 3000) {
+    enum item_result r = pc_open(core, game.cfg, romData, romLen, busy, battle);
+    fprintf(stderr, "pokedaisy: calltest frame %d pc_open -> %d (%ld steps), busy %d\n", ctFrame, (int)r, CT_STEPS(), busy);
+  }
+  return;
+#endif
+  if (!flyCfg || ctFrame < 2500 || ctStage >= 3 || !pk_call_safe(core))
+    return;
+  if (ctStage == 0 && ctFrame % 300 == 0) {
+    snapshot();
+    fly_targets(core, flyCfg, romData, romLen, &snap, busy, battle, &ctT);
+    ctCalls++;
+    fprintf(stderr, "pokedaisy: calltest frame %d busy %d: result %d flyer %d towns %d first %d (last call %ld steps)\n", ctFrame,
+            busy, (int)ctT.result, ctT.flyerSlot, ctT.count, ctT.count ? ctT.towns[0] : -1, CT_STEPS());
+    if (ctT.result == FLY_OK && ctT.count) {
+      ctMapsec = ctT.towns[0];
+      ctStage = 1;
+    }
+  } else if (ctStage == 1 && !busy) { /* FLY's first step: the checks again, then the Fly map closing: controls locked, a fade */
+    snapshot();
+    enum fly_result r = fly_start(core, flyCfg, romData, romLen, &snap, ctMapsec, &ctT, busy, battle);
+    fprintf(stderr, "pokedaisy: calltest frame %d fly_start -> %d (%ld steps), from map %d.%d (%d,%d)\n", ctFrame, (int)r, CT_STEPS(),
+            snap.mapGroup, snap.mapNum, snap.x, snap.y);
+    ctCallback = fly_main_callback(core, flyCfg);
+    ctWait = 0;
+    ctStage = r == FLY_OK ? 2 : 3;
+  } else if (ctStage == 2 && ++ctWait >= FLY_FADE_FRAMES) { /* the second: the game flies */
+    bool ok = fly_finish(core, flyCfg, romData, romLen, ctMapsec, &ctT, fly_main_callback(core, flyCfg) != ctCallback);
+    fprintf(stderr, "pokedaisy: calltest frame %d fly_finish -> %d (%ld steps)\n", ctFrame, ok, CT_STEPS());
+    ctStage = 3;
+  }
+}
+static void call_test_report(void) {
+  snapshot();
+  fprintf(stderr, "pokedaisy: calltest calls %d, stage %d, player at map %d.%d (%d,%d)\n", ctCalls, ctStage, snap.mapGroup,
+          snap.mapNum, snap.x, snap.y);
+}
+#define CALL_TEST(busy, battle) call_test((busy), (battle))
+#define CALL_TEST_REPORT() call_test_report()
+#else
+#define CALL_TEST(busy, battle) ((void)0)
+#define CALL_TEST_REPORT() ((void)0)
+#endif
+
 /* After every game frame: pk_wide's RAM history, and (wideReady) this frame's window. */
 static void wide_tick(void) {
   wideReady = wideHave = false;
@@ -877,6 +939,7 @@ RETRO_API void retro_reset(void) {
 RETRO_API void retro_unload_game(void) {
   pk_wide_configure(0);
   WIDE_CHECK_REPORT();
+  CALL_TEST_REPORT();
   wideSupported = wideReady = false;
   PD_BE_BEFORE_UNLOAD();
   mgba_retro_unload_game();
@@ -1345,6 +1408,7 @@ RETRO_API void retro_run(void) {
   // FLY's steps and the field-item jobs, each between two frames the game's own code can be called in.
   bool flyBattle = snap.inBattle || (fieldFlags & PK_FIELD_BATTLE);
   bool flyBusy = companion || (fieldFlags & PK_FIELD_LOCKED) || (wideSupported && pk_wide_scene() != PK_WIDE_SCENE_FIELD);
+  CALL_TEST(flyBusy, flyBattle);
   if ((flyCfg || gbf) && flyAsk && quickOpen && !companion) {
     bool answered = false;
     if (gbf) {

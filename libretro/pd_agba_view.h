@@ -41,6 +41,9 @@ enum { PD_PLATFORM_GBA = 0, PD_PLATFORM_GB = 1 };
 struct PdCore {
   int (*platform)(const struct PdCore *);
   void *board;                                              /* struct PdGbaView * */
+  uint8_t (*busRead8)(struct PdCore *, uint32_t address);
+  uint16_t (*busRead16)(struct PdCore *, uint32_t address);
+  uint32_t (*busRead32)(struct PdCore *, uint32_t address);
   void (*busWrite8)(struct PdCore *, uint32_t address, uint8_t value);
   void (*busWrite16)(struct PdCore *, uint32_t address, uint16_t value);
   void (*busWrite32)(struct PdCore *, uint32_t address, uint32_t value);
