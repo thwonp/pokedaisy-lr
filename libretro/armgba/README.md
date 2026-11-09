@@ -1,13 +1,13 @@
 # The PokeDaisy GBA core over armGBA
 
-`pokedaisy_armgba_libretro`: the same companion as `pokedaisy_libretro` (party, bag, dex, map, guide, settings, HUD,
+`pokedaisy_gba_libretro.so` (CMake target `pokedaisy_armgba_libretro`): the same companion as the mGBA-based core, which plorpOS packages as `pokedaisy_gbc_libretro.so` (CMake target and CI name `pokedaisy_libretro`, unchanged) (party, bag, dex, map, guide, settings, HUD,
 quick menu, EXPAND, FLY / PC / REPEL / BIKE, the wild-encounter switch, RUN INDOORS), with the Game Boy Advance run by
 [armGBA](https://github.com/MagnominusGit/armGBA) (a recompiler) instead of mGBA. On the Brick (Cortex-A53, FireRed, EXPAND
 on) a frame takes 4.2 ms against 7.1 ms. Game Boy and Game Boy Color games are not on this core: armGBA runs them on
-Gambatte (GPL-2.0 only, not linkable into this GPL-3.0 work), so they stay on `pokedaisy_libretro`.
+Gambatte (GPL-2.0 only, not linkable into this GPL-3.0 work), so they stay on the mGBA-based core (`pokedaisy_gbc_libretro.so`): the collection ships two cores, one per job.
 
 ## How it is built
-- `cmake -S libretro/armgba -B build -DCMAKE_TOOLCHAIN_FILE=libretro/aarch64.cmake`, target `pokedaisy_armgba_libretro`.
+- `cmake -S libretro/armgba -B build -DCMAKE_TOOLCHAIN_FILE=libretro/aarch64.cmake`, target `pokedaisy_armgba_libretro`, which writes `pokedaisy_gba_libretro.so`.
   Submodules: `third_party/armgba` (pinned, v1.5) and `third_party/zlib` (v1.3.1; the cross toolchain image has none, and
   zlib's CMake renames `zconf.h` inside its source tree, so `git checkout third_party/zlib` after a container build).
 - `libretro/pd_libretro.c` reaches its emulator through `libretro/pd_backend.h`: mGBA's `libretro.c` (the default build; the

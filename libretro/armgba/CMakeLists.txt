@@ -58,7 +58,9 @@ set_source_files_properties(${PD}/pd_libretro.c PROPERTIES COMPILE_OPTIONS "-Wno
 # pk_wide.c is the app's own file, written against mGBA's headers: shim/ gives it the view's types under mGBA's names.
 set_source_files_properties(${APP}/pk_wide.c ${PD}/../linux/fly.c ${PD}/../linux/field_items.c PROPERTIES
   COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/shim/pd_names.h;-Wno-unused-parameter")
-set_target_properties(pokedaisy_armgba_libretro PROPERTIES PREFIX "" COMPILE_DEFINITIONS "PD_ARMGBA=1;_GNU_SOURCE")
+# The file is pokedaisy_gba_libretro.so: the plorpOS collection calls its two cores pokedaisy_gba (this one) and pokedaisy_gbc.
+set_target_properties(pokedaisy_armgba_libretro PROPERTIES PREFIX "" OUTPUT_NAME pokedaisy_gba_libretro
+  COMPILE_DEFINITIONS "PD_ARMGBA=1;_GNU_SOURCE")
 target_include_directories(pokedaisy_armgba_libretro PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/shim ${ARMGBA}/libretro ${ARMGBA}/src ${ARMGBA}/libretro/deps/libretro-common/include
   ${PD} ${PD}/../3ds/core ${PD}/../linux ${APP})
