@@ -155,7 +155,8 @@ int main(int argc,char** argv){
   assert(!(reloaded.settings.tabBar & (1<<PD_TAB_MAP)) && (reloaded.frame.availableTabs & (1<<PD_TAB_MAP)));
   pd_snapshot field{};
   field.valid=true;
-  const hud_state active{250,250,false,-1,-1};
+  hud_state activeState{};activeState.repel=activeState.repelFull=250;activeState.wild=activeState.focus=-1;
+  const hud_state active=activeState;
   pd_settings hudOptions{};
   pd_settings_defaults(&hudOptions);
   hud_hits hits{};
@@ -164,7 +165,8 @@ int main(int argc,char** argv){
   assert(hud_first(&hits)==HUD_REPEL);
   hud_ds_minimap(&c,&hudOptions,"Route 201",[](pd_canvas*,int,int,int,int){},&hits);
   assert(hud_step(&hits,HUD_REPEL,0,-1)==HUD_MAP);
-  const hud_state noRepel{0,0,false,-1,-1};
+  hud_state noRepelState{};noRepelState.wild=noRepelState.focus=-1;
+  const hud_state noRepel=noRepelState;
   hud_ds_draw(&c,&field,&noRepel,&hudOptions,nullptr,nullptr,nullptr,79,true,c.w,&hits);
   assert(hud_step(&hits,HUD_REPEL,0,-1)==-1);
   ui.frame.tab=PD_TAB_BAG;
