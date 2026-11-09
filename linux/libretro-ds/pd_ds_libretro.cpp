@@ -664,7 +664,8 @@ void present(const void* data,unsigned,unsigned,size_t) {
     const int steps=snapshot.repelSteps;
     if(!steps)repelFull=0;
     else if(steps>repelFull)repelFull=hud_repel_full(steps);
-    const hud_state state{steps,repelFull,false,-1,-1};
+    hud_state built{};built.repel=steps;built.repelFull=repelFull;built.wild=built.focus=-1;
+    const hud_state state=built;
     const bool pip=arrangement.touch.w>0 && arrangement.touch.x>top.x && arrangement.touch.x<top.x+top.w;
     const int hudRight=pip?(arrangement.touch.x-top.x)*256/top.w:256;
     struct HudIcons {const pd_snapshot& party;bool small;};
