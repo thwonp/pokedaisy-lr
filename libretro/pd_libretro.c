@@ -577,6 +577,43 @@ static void wide_glow_tick(void) {
   wideHave = false;   // not a rebuilt window: the next full frame starts from the map again
 }
 
+#ifdef PD_WIDECHECK
+/* EXPAND's ground rule: the rebuilt window's middle (the game's own 240x160) must equal the frame the emulator drew, pixel
+ * for pixel. Counted per frame while the scene is the field; a summary at unload (-DPD_WIDECHECK, a test build only). */
+static unsigned wcAll, wcField, wcBad, wcWorst;
+static int wcFirstFrame = -1, wcFirstX, wcFirstY;
+static void wide_check(unsigned fw, unsigned fh, struct PkWideView v) {
+  wcAll++;
+  if (pk_wide_scene() != PK_WIDE_SCENE_FIELD || pk_wide_fault())
+    return;
+  wcField++;
+  unsigned bad = 0;
+  for (unsigned y = 0; y < fh; y++)
+    for (unsigned x = 0; x < fw; x++)
+      if (wideFrame[(size_t)((int)y - v.y) * wideW + (size_t)((int)x - v.x)] != wideSource[y * fw + x]) {
+        if (!bad && wcFirstFrame < 0)
+          wcFirstFrame = (int)wcAll, wcFirstX = (int)x, wcFirstY = (int)y;
+        bad++;
+      }
+  if (bad) {
+    wcBad++;
+    if (bad > wcWorst)
+      wcWorst = bad;
+  }
+}
+static void wide_check_report(void) {
+  fprintf(stderr, "pokedaisy: widecheck frames %u, field frames %u, frames with a differing middle %u, worst %u px%s\n", wcAll,
+          wcField, wcBad, wcWorst, wcFirstFrame < 0 ? "" : " (first: see below)");
+  if (wcFirstFrame >= 0)
+    fprintf(stderr, "pokedaisy: widecheck first difference: frame %d at (%d,%d)\n", wcFirstFrame, wcFirstX, wcFirstY);
+}
+#define WIDE_CHECK(fw, fh, v) wide_check((fw), (fh), (v))
+#define WIDE_CHECK_REPORT() wide_check_report()
+#else
+#define WIDE_CHECK(fw, fh, v) ((void)0)
+#define WIDE_CHECK_REPORT() ((void)0)
+#endif
+
 /* After every game frame: pk_wide's RAM history, and (wideReady) this frame's window. */
 static void wide_tick(void) {
   wideReady = wideHave = false;
@@ -598,6 +635,7 @@ static void wide_tick(void) {
   struct PkWideView v = wide_rect(fw, fh);
   PF_T(vw0);
   pk_wide_view(core, wideSource, wideFrame, v, NULL);
+  WIDE_CHECK(fw, fh, v);
   PF_T(vw1);
   pf_add(PF_VIEW, vw1 - vw0);
   wideReady = !pk_wide_fault();
@@ -838,7 +876,9 @@ RETRO_API void retro_reset(void) {
 
 RETRO_API void retro_unload_game(void) {
   pk_wide_configure(0);
+  WIDE_CHECK_REPORT();
   wideSupported = wideReady = false;
+  PD_BE_BEFORE_UNLOAD();
   mgba_retro_unload_game();
   free(cvs);
   free(out565);

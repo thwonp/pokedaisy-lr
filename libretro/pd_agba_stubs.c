@@ -95,24 +95,22 @@ bool gb_field_taken(struct mCore *core, const struct gb_field *f) { (void)core; 
 int pk_call_safe(struct mCore *core) { (void)core; return 0; }
 void pk_rest_note(struct mCore *core) { (void)core; }
 void pk_rest_reset(void) {}
-int pk_field_configure(uint32_t crc) { (void)crc; return 0; }
-int pk_field_state(struct mCore *core, int runIndoors, int wildKeep) {
-  (void)core; (void)runIndoors; (void)wildKeep;
+
+/* pk_wide_gb.c, which pk_wide.c hands every call to while a Game Boy game is configured: none are on this core, so
+ * pk_wide_gb_knows / _configure say no and the rest are never reached. */
+int pk_wide_gb_knows(uint32_t crc) { (void)crc; return 0; }
+int pk_wide_gb_configure(uint32_t crc) { (void)crc; return 0; }
+void pk_wide_gb_reset(void) {}
+int pk_wide_gb_scene(void) { return 0; }
+int pk_wide_gb_wants_close(void) { return 0; }
+int pk_wide_gb_last_mode(void) { return 0; }
+int pk_wide_gb_last_score(void) { return 0; }
+int pk_wide_gb_last_torn(void) { return 0; }
+int pk_wide_gb_glow(struct mCore *core, const uint32_t *frame, uint32_t *out, struct PkWideView v) {
+  (void)core; (void)frame; (void)out; (void)v;
   return 0;
 }
-void pk_field_wild(uint32_t addr, bool wasOff) { (void)addr; (void)wasOff; }
-int pk_wide_configure(uint32_t crc) { (void)crc; return 0; }
-int pk_wide_fault(void) { return 0; }
-int pk_wide_frame_w(void) { return 240; }
-int pk_wide_frame_h(void) { return 160; }
-void pk_wide_reset(void) {}
-int pk_wide_scene(void) { return 0; }
-void pk_wide_skip(struct mCore *core, const uint32_t *frame) { (void)core; (void)frame; }
-int pk_wide_glow(struct mCore *core, const uint32_t *frame, uint32_t *out, struct PkWideView view) {
-  (void)core; (void)frame; (void)out; (void)view;
-  return 0;
-}
-int pk_wide_view(struct mCore *core, const uint32_t *frame, uint32_t *out, struct PkWideView view, uint32_t *centre) {
-  (void)core; (void)frame; (void)out; (void)view; (void)centre;
+int pk_wide_gb_view(struct mCore *core, const uint32_t *frame, uint32_t *out, struct PkWideView v, uint32_t *centre) {
+  (void)core; (void)frame; (void)out; (void)v; (void)centre;
   return 0;
 }

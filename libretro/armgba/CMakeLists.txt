@@ -37,6 +37,11 @@ else()
   set(PD_ZLIB ZLIB::ZLIB)
 endif()
 add_subdirectory(${ARMGBA} armgba EXCLUDE_FROM_ALL)
+# EXPAND records what each line is drawn with, from a hook at the call that draws it: video.c's calls become ours
+# (pd_agba_view.c), which tell pk_wide.c and then draw. A compile-time rename, so nothing of armGBA's is edited and its
+# whole-program optimisation can't route round it.
+set_source_files_properties(${ARMGBA}/src/video/video.c TARGET_DIRECTORY armgba PROPERTIES
+  COMPILE_DEFINITIONS "renderScanline=pdRenderScanline;renderThreadScanline=pdRenderThreadScanline")
 
 get_target_property(AG_GLUE armgba_libretro SOURCES)
 list(FILTER AG_GLUE EXCLUDE REGEX "(^|/)libretro\\.c$")        # pd_libretro.c includes it, renamed
@@ -47,12 +52,14 @@ set(PD ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(APP ${PD}/../app/src/main/cpp)
 file(GLOB PD_CORE CONFIGURE_DEPENDS ${PD}/../3ds/core/*.c)
 add_library(pokedaisy_armgba_libretro SHARED ${AG_GLUE}
-  ${PD}/pd_libretro.c ${PD}/pd_lr_mem_agba.c ${PD}/pd_agba_gb_stub.c ${PD}/pd_agba_stubs.c ${PD_CORE}
+  ${PD}/pd_libretro.c ${PD}/pd_lr_mem_agba.c ${PD}/pd_agba_view.c ${APP}/pk_wide.c ${PD}/pd_agba_gb_stub.c ${PD}/pd_agba_stubs.c ${PD_CORE}
   ${PD}/../linux/hud.c ${PD}/../linux/quick_menu.c ${PD}/../linux/wild.c)
 set_source_files_properties(${PD}/pd_libretro.c PROPERTIES COMPILE_OPTIONS "-Wno-unused-function")
+# pk_wide.c is the app's own file, written against mGBA's headers: shim/ gives it the view's types under mGBA's names.
+set_source_files_properties(${APP}/pk_wide.c PROPERTIES COMPILE_OPTIONS "-include;${CMAKE_CURRENT_SOURCE_DIR}/shim/pd_names.h;-Wno-unused-parameter")
 set_target_properties(pokedaisy_armgba_libretro PROPERTIES PREFIX "" COMPILE_DEFINITIONS "PD_ARMGBA=1;_GNU_SOURCE")
 target_include_directories(pokedaisy_armgba_libretro PRIVATE
-  ${ARMGBA}/libretro ${ARMGBA}/src ${ARMGBA}/libretro/deps/libretro-common/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/shim ${ARMGBA}/libretro ${ARMGBA}/src ${ARMGBA}/libretro/deps/libretro-common/include
   ${PD} ${PD}/../3ds/core ${PD}/../linux ${APP})
 find_package(Threads REQUIRED)
 target_link_libraries(pokedaisy_armgba_libretro PRIVATE armgba retro-archive Threads::Threads ${PD_ZLIB} m)

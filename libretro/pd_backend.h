@@ -44,6 +44,7 @@
 #define PD_BE_ROM_LEN() (dataSize)
 #define PD_BE_CAPTURE(d, w, h, pitch) ((void)0)
 #define PD_BE_AFTER_LOAD(g) ((void)0)
+#define PD_BE_BEFORE_UNLOAD() ((void)0)
 #define PD_BE_INPUT_POLL() do { if (inputPollCallback) inputPollCallback(); } while (0)
 #define PD_BE_AUDIO(buf, frames) audioCallback((buf), (frames))
 
@@ -51,11 +52,12 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "pd_agba_view.h"
 
 /* armGBA: a GBA only (its Game Boy side is Gambatte, which cannot be linked into this core: pd_agba_gb_stub.c). The
  * machine is `gba` (struct GBA *), the frame comes through the video callback (RGB565, any pitch), and the ROM is in
- * gba->rom. `core` stays a null handle: the memory reader and the game-code stubs ignore it. */
-static void *const core = NULL;
+ * gba->rom. `core` is the view's core object (pd_agba_view.h) for the game-code layer. */
+static struct mCore *core; /* the view's core object, set once a game is loaded (pd_agba_view.c) */
 static uint16_t outputBuffer[256 * 160];
 static size_t pdRomLen;
 /* (A function, since pd_libretro.c has a local `gba` that would hide armGBA's.) */
@@ -84,7 +86,8 @@ static uint32_t pd_be_crc32(const uint8_t *p, size_t n) {
 #define PD_BE_ROM() (pd_be_rom())
 #define PD_BE_ROM_LEN() (pdRomLen)
 #define PD_BE_CAPTURE(d, w, h, pitch) pd_be_capture((d), (w), (h), (pitch))
-#define PD_BE_AFTER_LOAD(g) (pdRomLen = (g)->size)
+#define PD_BE_AFTER_LOAD(g) (pdRomLen = (g)->size, pd_agba_attach(), core = (struct mCore *)pd_agba_core())
+#define PD_BE_BEFORE_UNLOAD() (core = NULL, pd_agba_detach())
 #define PD_BE_INPUT_POLL() inputPoll()
 #define PD_BE_AUDIO(buf, frames) audioBatch((buf), (frames))
 
