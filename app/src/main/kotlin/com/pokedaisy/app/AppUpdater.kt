@@ -13,7 +13,8 @@ import java.net.URL
  */
 object AppUpdater {
 
-    const val REPO = "lidor30/pokedaisy"
+    // plorpedaisy fork: updates come from the fork's releases (tags plorpedaisy-<version>).
+    const val REPO = "thwonp/pokedaisy-lr"
     const val RELEASES_PAGE = "https://github.com/$REPO/releases"
 
     class Release(
@@ -45,7 +46,7 @@ object AppUpdater {
             val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
                 .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) } ?: return@mapNotNull null
             Release(
-                version = r.optString("tag_name").removePrefix("v"),
+                version = r.optString("tag_name").removePrefix("plorpedaisy-").removePrefix("v"),
                 notes = r.optString("body").trim(),
                 apkUrl = apk.optString("browser_download_url"),
                 apkSize = apk.optLong("size"),

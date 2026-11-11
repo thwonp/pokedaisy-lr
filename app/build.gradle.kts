@@ -67,7 +67,8 @@ android {
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "com.pokedaisy.app"
+        // plorpedaisy fork: its own app id, so it installs beside the upstream app (its own signing key).
+        applicationId = "com.pokedaisy.app.plorp"
         minSdk = 26
         targetSdk = 34
         // Bump both for every GitHub release: the updater compares versionName
