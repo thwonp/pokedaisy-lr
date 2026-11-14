@@ -41,7 +41,14 @@ int main(int argc,char** argv){
   // Cancel does not apply a highlighted choice.
   press(ui,RETRO_DEVICE_ID_JOYPAD_A);press(ui,RETRO_DEVICE_ID_JOYPAD_UP);press(ui,RETRO_DEVICE_ID_JOYPAD_B);assert(ui.layout==3);
   press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);assert(ui.setting==DsCompanionUi::Hud);
+  // HUD opens the shared HUD page (the GB / GBA cores' own): its first row switches the HUD, B comes back.
+  press(ui,RETRO_DEVICE_ID_JOYPAD_A);
+  assert(ui.frame.overlay==PD_OVERLAY_HUD && pd_ui_tab_menu_count(&ui.frame)==4+PD_HUD_PARTS && !ui.settings.hud);
   press(ui,RETRO_DEVICE_ID_JOYPAD_A);assert(ui.settings.hud);
+  draw();ppm((std::string(argv[2])+"/hud-page.ppm").c_str(),px);
+  press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);press(ui,RETRO_DEVICE_ID_JOYPAD_A);
+  assert(ui.settings.hudLayout==0); // LAYOUT is N/A on DS: one layout
+  press(ui,RETRO_DEVICE_ID_JOYPAD_B);assert(ui.frame.overlay==PD_OVERLAY_NONE && ui.setting==DsCompanionUi::Hud);
   press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);assert(ui.setting==DsCompanionUi::QuickStyle);
   press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);assert(ui.setting==DsCompanionUi::CompanionButton);
   press(ui,RETRO_DEVICE_ID_JOYPAD_A);
@@ -98,18 +105,19 @@ int main(int argc,char** argv){
   assert(ui.hud_id()==RETRO_DEVICE_ID_JOYPAD_Y);
   reloaded.init(path);
   assert(reloaded.hud_id()==RETRO_DEVICE_ID_JOYPAD_Y);
-  ui.setting=DsCompanionUi::HudSize;
+  // SIZE and the parts are rows of the HUD page: SIZE cycles NORMAL to LARGE, POKé BALLS and REPEL STEPS hide.
+  ui.setting=DsCompanionUi::Hud;
+  press(ui,RETRO_DEVICE_ID_JOYPAD_A);assert(ui.frame.overlay==PD_OVERLAY_HUD && ui.settings.hudSize==PD_HUD_NORMAL);
+  for(int i=0;i<3;++i)press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);
   press(ui,RETRO_DEVICE_ID_JOYPAD_A);
-  assert(ui.picker==DsCompanionUi::HudSize && ui.choice==0);
+  for(int i=0;i<PD_HUD_BALLS+1;++i)press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);
+  press(ui,RETRO_DEVICE_ID_JOYPAD_A);
   press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);
   press(ui,RETRO_DEVICE_ID_JOYPAD_A);
+  press(ui,RETRO_DEVICE_ID_JOYPAD_B);
   reloaded.init(path);
   assert(reloaded.settings.hudSize==PD_HUD_LARGE);
   ui.setting=DsCompanionUi::HudMinimal;
-  press(ui,RETRO_DEVICE_ID_JOYPAD_A);
-  press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);
-  press(ui,RETRO_DEVICE_ID_JOYPAD_A);
-  press(ui,RETRO_DEVICE_ID_JOYPAD_DOWN);
   press(ui,RETRO_DEVICE_ID_JOYPAD_A);
   reloaded.init(path);
   assert(reloaded.hudMinimal && (reloaded.settings.hudHidden&(1<<PD_HUD_BALLS))
@@ -177,16 +185,27 @@ int main(int argc,char** argv){
   field.party[0].hp=field.party[0].maxHp=20;
   std::vector<uint32_t> hudPixels(256*192);
   pd_canvas hudCanvas;pd_canvas_init(&hudCanvas,256,192,hudPixels.data());
+  field.bagOk=true;
+  field.bag[PD_POCKET_BALLS].count=1;
+  field.bag[PD_POCKET_BALLS].items[0]={4,12};
   int partyWidth[2],partyHeight[2];
   for(int i=0;i<2;++i){
     hud_state scale=active;
     scale.mini=i==0;
+    scale.pc=true;scale.wild=3;
     hudOptions.hudSize=scale.mini?PD_HUD_NORMAL:PD_HUD_LARGE;
     hud_ds_draw(&hudCanvas,&field,&scale,&hudOptions,nullptr,
                 [](pd_canvas* dest,void*,const pd_mon*,int x,int y,bool){pd_fill(dest,x+6,y+6,20,20,0xF4CF54);},
                 [](pd_canvas* dest,int,int x,int y){pd_fill(dest,x+8,y+3,8,16,0x80CF72);return true;},
                 79,false,hudCanvas.w,&hits,nullptr);
     assert(hud_first(&hits)==HUD_SLOT);
+    for(int target : {HUD_BALLS,HUD_PC,HUD_BAG,HUD_WILD,HUD_COMPANION})
+      assert(std::any_of(hits.at,hits.at+hits.n,[&](const auto& hit){return hit.id==target;}));
+    const auto findTarget = [&](int id) {
+      return std::find_if(hits.at,hits.at+hits.n,[=](const auto& hit){return hit.id==id;});
+    };
+    assert(findTarget(HUD_PC)->x<findTarget(HUD_BAG)->x);
+    assert(findTarget(HUD_BAG)->x<findTarget(HUD_WILD)->x);
     partyWidth[i]=hits.at[0].w;
     partyHeight[i]=hits.at[0].h;
     hud_ds_minimap(&hudCanvas,&hudOptions,"Route 201",[](pd_canvas* dest,int x,int y,int w,int h){
@@ -198,10 +217,10 @@ int main(int argc,char** argv){
     ppm((std::string(argv[2])+(scale.mini?"/hud-mini.ppm":"/hud-large.ppm")).c_str(),hudPixels,hudCanvas.w,hudCanvas.h);
   }
   assert(partyWidth[0]<partyWidth[1] && partyHeight[0]<partyHeight[1]);
-  field.partyCount=0;
+  field.partyCount=0;field.bagOk=false;
   const hud_state noRepel{0,0,false,-1,-1};
   hud_ds_draw(&c,&field,&noRepel,&hudOptions,nullptr,nullptr,nullptr,79,true,c.w,&hits,nullptr);
-  assert(hud_step(&hits,HUD_REPEL,0,-1)==-1);
+  assert(hud_first(&hits)==HUD_BAG);
   ui.frame.tab=PD_TAB_BAG;
   s.bag.clear();
   draw();

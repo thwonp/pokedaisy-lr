@@ -666,8 +666,9 @@ static void minimap(struct hud *u, int x, int y, int mw, int mh, int lines) {
   if (name && *name) {
     pd_clip(u->c, mx, my + mh + 1, mw, lines * NAME_H + 4);
     if (small && lines == 1 && small_text(u->c, 0, 0, name, 0, true)) {
-      small_text(u->c, mx + 1, my + mh + 2, name, u->L->shadow, false);
-      small_text(u->c, mx, my + mh + 1, name, u->L->text, false);
+      // The capitals (the small font's rows 0-7) centred between the map and the panel's edge: 3 rows each side.
+      small_text(u->c, mx + 1, my + mh + 4, name, u->L->shadow, false);
+      small_text(u->c, mx, my + mh + 3, name, u->L->text, false);
     } else if (lines > 1)
       pd_text_wrap(u->c, mx, my + mh + 1, mw, LINE, lines, name, u->L->text, u->L->shadow);
     else
@@ -1180,8 +1181,25 @@ void hud_ds_draw(struct pd_canvas *c, const struct pd_snapshot *s, const struct 
   u.partyN = !minimal && shows(&u, PD_HUD_PARTY) ? s->partyCount : 0;
   u.balls = shows(&u, PD_HUD_BALLS) ? balls(s, u.ball) : 0;
   u.repel = shows(&u, PD_HUD_REPEL) && h->repel > 0;
+  if (!h->noButtons) {
+    if (h->pc && shows(&u, PD_HUD_PC))
+      u.button[u.buttons++] = HUD_PC;
+    if (shows(&u, PD_HUD_BAG))
+      u.button[u.buttons++] = HUD_BAG;
+    if (h->wild >= 0 && shows(&u, PD_HUD_WILD))
+      u.button[u.buttons++] = HUD_WILD;
+    u.button[u.buttons++] = HUD_COMPANION;
+  }
+  const int available = right - 2 * EDGE;
+  while (u.buttons > 1 && buttons_w(&u, false) > available) {
+    if (u.buttons == 2 && u.button[1] == HUD_BAG)
+      u.button[0] = HUD_BAG;
+    u.buttons--;
+  }
+  while (u.balls > 1 && balls_w(&u, false) > available)
+    u.balls--;
   if (minimal) {
-    if (!u.balls && !u.repel && shows(&u, PD_HUD_PARTY) && s->partyCount) {
+    if (!u.balls && !u.repel && !u.buttons && shows(&u, PD_HUD_PARTY) && s->partyCount) {
       u.partyN = 1;
       party_row(&u, EDGE, c->h - EDGE - party_height(&u));
     } else compact(&u);

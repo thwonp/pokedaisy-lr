@@ -38,7 +38,7 @@ guide, all drawn in the game's own menu style.
   it, and a HUD, a quick menu and battle buttons keep the essentials on the game screen.
 - **Folding phones** (Galaxy Z Fold, Pixel Fold, ...): half open, the game goes above the fold and the companion below it,
   like a two-screen handheld (or on facing pages when held like a book).
-- **DS games** (Platinum, HeartGold, SoulSilver, Black, White, Black 2, White 2, and the Origin HeartGold and Renegade Platinum hacks): the touch screen
+- **DS games** (Platinum, HeartGold, SoulSilver, Black, White, Black 2, White 2, and the Origin HeartGold, Renegade Platinum, Blaze Black 2 Redux and Volt White 2 Redux hacks): the touch screen
   goes on the bottom screen, one tap swaps it for the companion.
 
 ## Devices
@@ -125,12 +125,15 @@ shows a "not supported" notice).
 | Game                           | Version                    | Party | Bag | Battle | Map |   Dex   | Guide |
 | ------------------------------ | -------------------------- | :---: | :-: | :----: | :-: | :-----: | :---: |
 | Red / Blue (GB)                | USA/Europe                 |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
+| Red / Blue (GB)                | DE (Rote Edition / Blaue Edition) |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | PureRed / PureBlue (GB)        | 2.7.6                      |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
 | Yellow (GB)                    | USA/Europe                 |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Yellow (GB)                    | DE / FR / IT / ES          |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Yellow Legacy (GB)             | 1.0.10                     |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ✅   |
 | Gold / Silver (GBC)            | USA/Europe                 |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
+| Gold / Silver (GBC)            | DE (Goldene Edition, Silberne Edition) |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
 | Crystal (GBC)                  | USA, USA/Europe rev 1, AU  |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
+| Crystal (GBC)                  | DE (Kristall)              |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Crystal Legacy (GBC)           | 1.3.1                      |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ✅   |
 | Crystal Clear (GBC)            | 2.5.11, 2.6.0 (4 builds)   |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
 | Prism (GBC)                    | 0.95 build 254             |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
@@ -155,6 +158,8 @@ shows a "not supported" notice).
 | White 2 (DS)                   | USA/Europe, every language |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Origin HeartGold (DS)          | 4.0.3 English 1.0.0        |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
 | Renegade Platinum (DS)         | 1.2.0, 1.3.0 (+ Classic)   |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
+| Blaze Black 2 Redux (DS)       | 1.4.1 (+ Classic, EVless)  |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
+| Volt White 2 Redux (DS)        | 1.4.1 (+ Classic, EVless)  |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   —   |
 | Unbound                        | 2.1.1.1                    |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Unbound                        | 2.1.1.1 French             |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Radical Red                    | 4.1                        |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
@@ -167,7 +172,6 @@ shows a "not supported" notice).
 | Ultra Violet                   | 1.22                       |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | FireRed Rocket Edition         | the one release            |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Ash Gray                       | 4.5.3, Fork Bug Fix 1.0    |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
-| Ghost Grey                     | 1.0.1, 1.0.2, 1.0.4        |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Let's Go Pikachu / Eevee       | English (4 builds)         |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | Sword and Shield Ultimate Plus | 1.2.1.2 + its 3 patches    |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
 | GS Chronicles                  | 2.7.6                      |  ✅   | ✅  |   ◐    | ✅  |   ✅    |  ✅   |
@@ -188,7 +192,7 @@ shows a "not supported" notice).
 | Modern Emerald                 | 3.6                        |  ✅   | ✅  |   ◐    |  ◐  |    —    |   —   |
 | Elite Redux                    | 2.65.3b, 2.65.4.1b         |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ◐   |
 | Team Rocket Dragonsden         | 1.5                        |  ✅   | ✅  |   ◐    |  ◐  |    —    |   ◐   |
-| Team Rocket Dragonsden         | 2026 3.0.9 (Spanish)       |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ◐   |
+| Team Rocket Dragonsden         | 2026 3.0.9, 3.1 (Spanish)  |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ◐   |
 | Wishes of Tomorrow             | 1.2.6                      |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ◐   |
 | Dreamstone Mysteries           | the one release            |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ◐   |
 | Monomyth                       | 1.0, 1.1                   |  ✅   | ✅  |   ◐    | ✅  |   ✅    |   ◐   |
@@ -205,7 +209,7 @@ without the map picture. Guide ◐ means the live pages only (the wild encounter
 means the battle panes work but haven't been checked in every kind of battle. On the DS, HeartGold's and SoulSilver's
 battles aren't read yet. Origin HeartGold's battle system is its own: the battle panes read it, but their buttons
 can't press its menus, and it has no guide yet. Renegade Platinum reads as Platinum with its own types (Fairy among them),
-moves and type chart; its trainers and wild Pokémon are its own, so it has no guide yet. Team Rocket Dragonsden is DragonsdenTV's Team Rocket Edition, not FireRed Rocket Edition.
+moves and type chart; its trainers and wild Pokémon are its own, so it has no guide yet. Blaze Black 2 Redux and Volt White 2 Redux read the same way, as Black 2 and White 2 with their own types, moves, type chart and machines, and no guide yet. Team Rocket Dragonsden is DragonsdenTV's Team Rocket Edition, not FireRed Rocket Edition.
 FireRed (rev 0 and 1) and Emerald randomized with Universal Pokemon Randomizer ZX 4.6.1 work with any settings and
 seed: the companion reads the randomized types, moves, teams, wild Pokémon and items from the ROM, and the guide leaves
 out the gift and legendary Pokémon it can't know. Monomyth's natures are its own: the summary names them, and they change no stat.

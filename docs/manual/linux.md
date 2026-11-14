@@ -10,6 +10,9 @@ PokeDaisy for Linux plays your Game Boy, Game Boy Color and Game Boy Advance gam
 quick menu and `EXPAND` as the libretro cores, on a Steam Deck, a Linux desktop and Linux handhelds. It reads your
 own ROMs and saves; it never comes with games.
 
+New to it? [Install on Linux, Steam Deck and handhelds](linux-install.md) takes you through the download and
+install step by step, in every language the app has.
+
 > [!WARNING]
 > This is a beta. The Android app stays the full PokeDaisy, and some devices below haven't been tried yet. If
 > something goes wrong, open an issue on [GitHub](https://github.com/lidor30/pokedaisy/issues) and say which file
@@ -92,9 +95,9 @@ names saves by the file name alone.
 
 ### NXRedux collection and Platinum
 
-In Platinum (USA, revision 1), L2 opens the companion and SELECT + L2 opens the quick menu. Set `SETTINGS` >
+In Platinum (USA, revision 1), L2 opens the companion and holding L2 opens the quick menu. Set `SETTINGS` >
 `DS LAYOUT` to `ONE SCREEN` to play on the whole screen, with the touch screen and menus floating in when the game
-wants them. R2 switches to the bottom or top screen by hand. Hold SELECT and press R2 to show or hide a floating
+wants them. R2 switches to the bottom or top screen by hand. Hold SELECT and press Y to show or hide a floating
 touch screen in `ONE SCREEN` or `PICTURE IN PICTURE`. SELECT + D-pad moves the stylus and SELECT + A taps.
 
 In a DS game's DEX entry, Left and Right step to the previous and next entry you have seen, going round at either
@@ -128,9 +131,11 @@ On plorpOS, PokeDaisy runs as a core of the launcher's own emulator. The save is
 and the launcher owns save states, fast-forward, rewind, shaders and leaving the game. Pick PokeDaisy in the Core
 row of a Game Boy shelf.
 
-In this form the quick menu (Y) keeps PC, FLY, the keep-away spray, BIKE, WILD ENCOUNTERS and COMPANION, adds a HUD
-tile that puts the cursor on the HUD, and the game pauses while it is open. X opens the companion. SETTINGS lists
-only what the core does itself: ASPECT, HUD, QUICK MENU, three button rows and TAB BAR. QUICK MENU BUTTON,
+In this form the quick menu (Y) keeps PC, FLY, the keep-away spray, BIKE, WILD ENCOUNTERS and COMPANION (with TAKE
+OFF in the English FireRed and Emerald), adds a HUD tile that puts the cursor on the HUD, and the game pauses while it
+is open. X opens the companion. SETTINGS lists only what the core does itself: ASPECT, HUD, QUICK MENU, FLY STYLE,
+FLIGHT AREA and FLY ON (where there's TAKE OFF), three button rows, AUTO-RUN (where the game's field is read), DARK
+MODE, TAB BAR and RESET SETTINGS, which puts every companion setting back after you confirm. QUICK MENU BUTTON,
 COMPANION BUTTON and HUD CURSOR BUTTON step through X, Y, L2 and R2 (and NONE for the cursor) when you press A on
 them, and a button another action already uses swaps over to it. L2 and R2 reach the core on every shelf (for other
 Game Boy Advance cores the launcher still keeps them back).
@@ -185,14 +190,23 @@ screen or a mouse reaches the companion and the HUD.
 
 The companion and the quick menu work as in the cores everywhere: X opens the [companion](companion.md), Y opens the
 quick menu over the game (PC, FLY, the keep-away spray, BIKE, WILD ENCOUNTERS, COMPANION), and both buttons can be
-changed in the companion's `SETTINGS`. The [HUD](hud.md) shows your party and a small map over the overworld, and
-[EXPAND](screen.md#expand-more-of-the-map) is `ASPECT` in the companion's `SETTINGS`, with `ZOOM OUT` for even more
-of the map. The quick menu's tiles follow your HUD look, in two shades with an orange outline on the
+changed in the companion's `SETTINGS`. In the English FireRed and Emerald the quick menu also has `TAKE OFF`, to
+[fly over the map](map.md#flying-over-the-map) on your Pokémon's bird (the companion's `MAP` has a `TAKE OFF` button
+too). There `FLY` flies you over the map to the town you pick, unless `FLY STYLE` in the companion's `SETTINGS` is
+`CLASSIC`, the game's own way. `FLY ON` swaps the bird for an air balloon, a helicopter or a zeppelin. `FLIGHT AREA`
+keeps the flight to [places you've already been](map.md#where-you-can-fly) (`VISITED`, the default) or lets it go
+`ANYWHERE`. The list of places is kept for each save, in `saves/pokedaisy/flight-area`. In the English FireRed,
+LeafGreen, Ruby, Sapphire and Emerald the quick menu has [`FLASH`](controls.md#the-quick-menu) too, to light up a dark
+cave once a Pokémon in your party knows the move; it's greyed out where it isn't dark. The
+[HUD](hud.md) shows your party and a small map over the overworld, and [EXPAND](screen.md#expand-more-of-the-map)
+is `ASPECT` in the companion's `SETTINGS`, with `ZOOM OUT` for even more of the map. The quick menu's tiles follow your HUD look, in two shades with an orange outline on the
 one you're on, and the HUD's panels have a battle-style shadow, with an HP bar and room for a status tag on each
 party Pokémon.
 
 In a DS game the DS has every face and shoulder button, so L2 opens the companion and R2 switches the screens, and the
-game starts on one screen. `SETTINGS` > `HUD SIZE` there picks `MINI` or `LARGE`.
+game starts on one screen. The DS HUD has the same PC, BAG, WILD and COMPANION buttons as a GBA game's, and hides
+while the game shows text. `HUD` in its `SETTINGS` opens the same HUD page as a GBA game's, with `LOOK`, `SIZE`
+(`SMALL`, `NORMAL` or `LARGE`) and which parts show, and the quick menu's `HUD` tile moves the cursor onto the HUD.
 
 ## The menu
 
@@ -212,22 +226,24 @@ pauses while it's open.
 
 ### Hotkeys
 
-`HOTKEYS` gives these a button each:
+Hotkeys work while you hold SELECT, so their buttons stay the game's the rest of the time. `HOTKEYS` gives these a
+button each:
 
-- `FAST FORWARD`: the game runs fast while you hold it. R2 to start with.
-- `REWIND`: the game runs backwards while you hold it, with `REWIND` set to `ON`. L2 to start with. While `REWIND` is
-  `OFF` its button is the game's.
-- `SAVE STATE` and `LOAD STATE`: one press each. Off to start with.
+- `FAST FORWARD`: the game runs fast while you hold SELECT and the button. R2 to start with.
+- `REWIND`: the game runs backwards while you hold SELECT and the button, with `REWIND` set to `ON`. L2 to start with.
+- `SAVE STATE` and `LOAD STATE`: one press each, with SELECT held. Off to start with.
+- `MODIFIER`: the button you hold for the hotkeys. SELECT to start with. Press START or a hotkey button to use that
+  instead, or press SELECT to turn it off; then each hotkey is its button alone, and that button never reaches the game.
+
+A short press of SELECT on its own still reaches the game when you let go.
 
 Pick a row, then press the button you want. B cancels and SELECT turns the hotkey off. L1, R1, L2, R2, X, Y, either
 stick's click and back buttons can be hotkeys; A, B, START, SELECT and the D-pad stay the game's. A button that
-another hotkey had moves over to the new one. The game never sees a hotkey's button, so if you make X or Y one,
-the companion or the quick menu needs another button.
+another hotkey had moves over to the new one, and the `MODIFIER` can't be a hotkey's button too.
 
-DS games keep hotkeys of their own, since L2 and R2 are the DS's companion and screen buttons there: fast-forward is
-R3 and rewind L3 to start with. A device without stick buttons gets them only once you pick buttons in `HOTKEYS`
-during a DS game. On a Steam Deck, the back buttons reach PokeDaisy only when
-Steam passes them on.
+DS games keep hotkeys of their own, also SELECT + R2 and SELECT + L2 to start with. With the `MODIFIER` off they move
+to R3 and L3, since R2 and L2 alone are the DS's screen and companion buttons. On a Steam Deck, the back buttons reach
+PokeDaisy only when Steam passes them on.
 
 ## For advanced users
 

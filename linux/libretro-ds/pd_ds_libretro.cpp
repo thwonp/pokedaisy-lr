@@ -48,6 +48,26 @@ extern "C" {
 #include "pd_icon.h"
 }
 namespace pd_ds {
+// PD_DS_PERF=1: every 300 frames, where a frame's time went (ms each): DSperate's own emulation, and PokeDaisy's
+// present split into composing the screens, the RGB565 copy and the HUD. Off, it costs a getenv at load.
+bool perfOn=false;
+// The last frame handed over was this layout's field picture (not the companion's or the quick menu's), and whether the
+// one before was a repeat: see present_frame's skip.
+bool presentedField=false,repeatedLast=false;
+DsArrangement presentedArrangement;
+bool same_arrangement(const DsArrangement& a,const DsArrangement& b){
+  auto rect=[](const DsRect& p,const DsRect& q){return p.x==q.x&&p.y==q.y&&p.w==q.w&&p.h==q.h;};
+  return rect(a.top,b.top)&&rect(a.touch,b.touch)&&a.floating==b.floating&&a.modal==b.modal&&a.useField==b.useField;
+}
+double perfRun=0,perfPresent=0,perfCompose=0,perfConvert=0,perfHud=0,perfLayout=0;int perfFrames=0;
+double perf_now(){timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec*1e3+t.tv_nsec/1e6;}
+void perf_report(){
+  if(!perfOn || ++perfFrames<300)return;
+  const double n=perfFrames;
+  std::fprintf(stderr,"PokeDaisy DS perf: emulation %.2f ms, present %.2f ms (layout %.2f, compose %.2f, rgb565 %.2f, hud %.2f) per frame\n",
+               (perfRun-perfPresent)/n,perfPresent/n,perfLayout/n,perfCompose/n,perfConvert/n,perfHud/n);
+  perfRun=perfPresent=perfCompose=perfConvert=perfHud=perfLayout=0;perfFrames=0;
+}
 retro_environment_t environment;
 retro_video_refresh_t video;
 retro_input_state_t input;
@@ -184,7 +204,7 @@ bool env(unsigned cmd,void* data) {
     std::vector<retro_variable> all;
     for(;vars && vars->key;++vars)all.push_back(*vars);
     all.push_back({"pokedaisy_ds_layout","Initial DS layout (saved companion settings take priority); auto|top|bottom|stacked"});
-    all.push_back({"pokedaisy_ds_hud","Initial party HUD (saved companion settings take priority); disabled|enabled"});
+    all.push_back({"pokedaisy_ds_hud","Initial party HUD (saved companion settings take priority); enabled|disabled"});
     all.push_back({nullptr,nullptr});
     return environment(cmd,all.data());
   }
@@ -299,6 +319,7 @@ void choose_layout() {
   if(scene.hud&&!scene.dark&&!(bits&PK_NDS_FIELD_LOCKED)){std::memcpy(fieldFrame,nds->gpu.framebuffer(0),sizeof fieldFrame);fieldValid=true;}
 }
 void draw_companion() {
+  presentedField=false;
   pd_canvas c;pd_canvas_init(&c,341,256,ui_pixels);
   shell.draw(&c,snapshot,companionGame!=DsGame::Unsupported,map,icons);
   geometry(341,256);
@@ -310,7 +331,7 @@ int repelChoices[3],repelCount=0,repelSelected=0;
 std::string repelLabels[3];
 bool repelPicker=false;
 bool field_free(int bits){
-  return (bits&PK_NDS_FIELD_SCREEN)&&!(bits&(PK_NDS_FIELD_LOCKED|PK_NDS_FIELD_BATTLE|PK_NDS_FIELD_MENU));
+  return (bits&PK_NDS_FIELD_SCREEN)&&!(bits&(PK_NDS_FIELD_LOCKED|PK_NDS_FIELD_BATTLE|PK_NDS_FIELD_MENU|PK_NDS_FIELD_TEXT));
 }
 bool field_free(){return field_free(pk_nds_field_state(game,read32,nullptr,0));}
 void quick_notice(const char* label){
@@ -574,12 +595,13 @@ int ds_shortcuts(quick_item (&items)[shortcutCapacity]){
     items[count++]={QUICK_REPEL,false,false,fieldWhy?fieldWhy:snapshot.repelSteps?"Repel still active":
       !hasRepel?"No Repel in the Bag":nullptr};
     if(game)items[count++]={QUICK_WILD,shell.settings.wildOff,false,fieldWhy};
-    items[count++]={QUICK_HUD,false,shell.settings.hud,nullptr};
+    items[count++]={QUICK_HUD,false,false,hudHits.n?nullptr:"No HUD on screen"};
   }
   items[count++]={QUICK_COMPANION,false,false,nullptr};
   return count;
 }
 void draw_quick() {
+  presentedField=false;
   pd_canvas c;pd_canvas_init(&c,341,256,quick_pixels);
   pd_game presentation{};
   quick_item items[shortcutCapacity]{};
@@ -621,20 +643,44 @@ void draw_strip(uint32_t* out){
                        battleActive&&!battleStrip.tapFrames,tick,
                        battlePanelArtValid?battlePanelArt.data():nullptr);
 }
+void present_frame(const void* data);
 void present(const void* data,unsigned,unsigned,size_t) {
-  hudHits.n=0;
-  if(companion){draw_companion();return;}
+  const double t0=perfOn?perf_now():0;
+  present_frame(data);
+  if(perfOn)perfPresent+=perf_now()-t0;
+}
+void present_frame(const void* data) {
+  if(companion){hudHits.n=0;draw_companion();return;}
   // Refresh composition even when DSperate skipped rasterization: switching
   // screens must still display the latest retained framebuffer.
   (void)data;
+  const double l0=perfOn?perf_now():0;
   if(hudCursor<0)choose_layout();
+  if(perfOn)perfLayout+=perf_now()-l0;
+  // dsperate_frameskip auto: a frame the frontend's audio said to skip wasn't drawn, so the screens are the last ones.
+  // Where nothing of ours changed (the same layout, no cursor), show the last frame again (video(nullptr)) instead of
+  // composing, converting and drawing the HUD over the same picture - the time the skip was meant to give back. Never
+  // twice in a row: the HUD, the strip and a popup are at most a frame behind.
+  if(fs_mode==Skip::Frame && fs_behind && data && presentedField && !repeatedLast && hudCursor<0 && !quickOpen &&
+     same_arrangement(arrangement,presentedArrangement)){
+    // The HUD on screen is the last frame's, so its hit boxes stay: cleared here, the HUD button went unheard after it.
+    repeatedLast=true;
+    video(nullptr,512,384,512*2);
+    return;
+  }
+  repeatedLast=false;
+  hudHits.n=0;
   const unsigned w=512,h=384;
   const bool showStrip=holdStrip>0 && !scene.dark && arrangement.top.w==512 && wants_strip();
+  const double c0=perfOn?perf_now():0;
   ds_compose(stage,arrangement,nds->gpu.framebuffer(0),nds->gpu.framebuffer(1),
              fieldValid?fieldFrame:nullptr,showStrip?draw_strip:nullptr);
   stageReady=true;
   geometry(w,h);
+  const double c1=perfOn?perf_now():0;
   for(unsigned i=0;i<w*h;++i)pixels[i]=ds_rgb565(stage[i]);
+  if(perfOn){const double c2=perf_now();perfCompose+=c1-c0;perfConvert+=c2-c1;}
+  const double h0=perfOn?perf_now():0;
   if(hudCursor<0&&(buttons&(1u<<RETRO_DEVICE_ID_JOYPAD_SELECT))&&arrangement.touch.w>0){
     int cx=arrangement.touch.x+cursor_x*arrangement.touch.w/256;
     int cy=arrangement.touch.y+cursor_y*arrangement.touch.h/192;
@@ -645,6 +691,7 @@ void present(const void* data,unsigned,unsigned,size_t) {
   }
   const auto& top=arrangement.top;
   if(companionGame!=DsGame::Unsupported && shell.settings.hud && scene.hud && !scene.dark &&
+     (!game || field_free()) && !fieldMenuFlow &&
      top.w>0 && top.h>0 && !arrangement.floating && !arrangement.modal) {
     if(tick%12==0 || !snapshot.valid)refresh();
     pd_canvas c;pd_canvas_init(&c,256,192,ui_pixels);
@@ -658,13 +705,25 @@ void present(const void* data,unsigned,unsigned,size_t) {
     for(const auto& item:snapshot.bag){
       // Unova stores Poké Balls in Items, alongside held items and field tools.
       const bool unovaBall=(item.id>=1&&item.id<=16)||(item.id>=492&&item.id<=500)||item.id==576;
-      const bool ball=ds_unova(companionGame)?item.pocket==0&&unovaBall:item.pocket==6;
+      const bool ball=ds_unova(companionGame)?unovaBall:item.pocket==6;
       if(ball&&balls.count<PD_POCKET_SLOTS)balls.items[balls.count++]={uint16_t(item.id),uint16_t(item.count)};
     }
     const int steps=snapshot.repelSteps;
     if(!steps)repelFull=0;
     else if(steps>repelFull)repelFull=hud_repel_full(steps);
-    hud_state state{steps,repelFull,false,-1,-1};
+    const auto encounters=ds_guide_here(snapshot,soulSilver);
+    int wild=encounters.count ? 0 : -1;
+    if(wild>=0){
+      bool counted[650]{};
+      for(int i=0;i<encounters.count;++i){
+        const unsigned id=encounters.entries[i].species;
+        if(!id || id>=std::size(counted) || counted[id])continue;
+        counted[id]=true;
+        if(id>=snapshot.dexCaught.size() || !snapshot.dexCaught[id])++wild;
+      }
+    }
+    const bool pc=pk_nds_call_supported(game)&&nds->cpu(ds::Cpu::ARM9).itcm_size>=0x02000000;
+    hud_state state{steps,repelFull,pc,wild,-1};
     state.mini=shell.settings.hudSize!=PD_HUD_LARGE;
     const bool pip=arrangement.touch.w>0 && arrangement.touch.x>top.x && arrangement.touch.x<top.x+top.w;
     const int hudRight=pip?(arrangement.touch.x-top.x)*256/top.w:256;
@@ -706,7 +765,30 @@ void present(const void* data,unsigned,unsigned,size_t) {
     hud_focus_draw(&c,&hudHits,hudCursor);
     // Scale with the top screen and keep the picture-in-picture touch screen clear.
     const bool doubled=top.w==512 && top.h==384;
-    for(int y=0;y<top.h;++y){
+    // x / 255 for x up to 255 * 255, exactly, without a divide.
+    auto div255=[](unsigned x){return (x+1+(x>>8))>>8;};
+    auto blend=[&](uint32_t p,uint16_t old){
+      const unsigned a=p>>24?p>>24:255;
+      if(a==255)return ds_rgb565(p&0xffffff);
+      unsigned r=(old>>11&31)*255/31,g=(old>>5&63)*255/63,b=(old&31)*255/31;
+      r=div255(((p>>16)&255)*a+r*(255-a));
+      g=div255(((p>>8)&255)*a+g*(255-a));
+      b=div255((p&255)*a+b*(255-a));
+      return ds_rgb565((r<<16)|(g<<8)|b);
+    };
+    if(doubled && arrangement.touch.w==0){
+      // The usual One Screen field: each HUD pixel is a 2x2 block. Walk the HUD's own 256x192 and skip clear pixels.
+      for(int y=0;y<192;++y){
+        const auto* row=ui_pixels+y*256;
+        for(int x=0;x<256;++x){
+          const uint32_t p=row[x];
+          if(p==QUICK_CLEAR)continue;
+          const unsigned at=(top.y+2*y)*w+top.x+2*x;
+          const uint16_t q=blend(p,pixels[at]);
+          pixels[at]=pixels[at+1]=pixels[at+w]=pixels[at+w+1]=q;
+        }
+      }
+    }else for(int y=0;y<top.h;++y){
       const auto* row=ui_pixels+(doubled?y/2:y*192/top.h)*256;
       for(int x=0;x<top.w;++x){
         const uint32_t p=row[doubled?x/2:x*256/top.w];
@@ -722,6 +804,9 @@ void present(const void* data,unsigned,unsigned,size_t) {
       }
     }
   }
+  if(perfOn)perfHud+=perf_now()-h0;
+  presentedField=true;
+  presentedArrangement=arrangement;
   video(pixels,w,h,w*2);
 }
 int16_t filtered_input(unsigned p,unsigned d,unsigned i,unsigned id) {
@@ -768,6 +853,7 @@ int16_t filtered_input(unsigned p,unsigned d,unsigned i,unsigned id) {
   return input(p,d,i,id);
 }
 void hud_open_target(int id) {
+  if(id==HUD_PC){open_pc();return;}
   refresh();
   if(!snapshot.valid)return;
   shell.frame.overlay=PD_OVERLAY_NONE;
@@ -779,11 +865,18 @@ void hud_open_target(int id) {
     shell.selected=id-HUD_SLOT;
     shell.summary=true;
     shell.page=shell.learnRow=0;
-  }else if(id==HUD_MAP){
+  }else if(id==HUD_MAP || id==HUD_MAP_BUTTON){
     shell.frame.tab=PD_TAB_MAP;
     shell.mapX=snapshot.mapX;
     shell.mapY=snapshot.mapY;
-  }else if(id==HUD_BALLS || id==HUD_REPEL){
+  }else if(id==HUD_WILD){
+    shell.frame.tab=PD_TAB_GUIDE;
+    shell.frame.guidePage=int(GuidePage::Here);
+    shell.guideLoadedPage=-1;
+    pd_ui_guide_reset(&shell.frame);
+  }else if(id==HUD_COMPANION){
+    refresh_battle_companion();
+  }else if(id==HUD_BALLS || id==HUD_REPEL || id==HUD_BAG){
     shell.frame.tab=PD_TAB_BAG;
     shell.pocket=shell.scroll=0;
   }else return;
@@ -881,7 +974,10 @@ void controls() {
         quickOpen=false;
         return;
       }
-      if(shortcut.action==QUICK_HUD){shell.settings.hud=!shell.settings.hud;shell.save();}
+      if(shortcut.action==QUICK_HUD){
+        hudCursor=hud_first(&hudHits);
+        hudConsumed|=buttons;
+      }
       else{
         refresh();refresh_battle_companion();companion=true;
         shell.mapX=snapshot.mapX;shell.mapY=snapshot.mapY;
@@ -955,6 +1051,7 @@ RETRO_API void retro_get_system_av_info(retro_system_av_info* info){
 }
 RETRO_API bool retro_load_game(const retro_game_info* info){
   pd_ds::clear();pd_ds::width=512;pd_ds::height=384;
+  pd_ds::perfOn=std::getenv("PD_DS_PERF")!=nullptr;
   if(!ds_load_game(info))return false;
   // Read for the hash and the companion's art: a game too big for memory (or not a file) leaves the companion off
   // rather than throwing out of a C entry point.
@@ -975,6 +1072,7 @@ RETRO_API bool retro_load_game(const retro_game_info* info){
     pd_ds::companionGame=ds_companion_game(hex);
     pd_ds::soulSilver=!std::strcmp(hex,pd_ds_data::soulSilverSha1);
     pd_ds::battleStyle=ds_battle_style(hex);
+    ds_battle_set_base_pp({});
     if(pd_ds::battleStyle)
       pd_ds::game=pk_nds_field_game(reinterpret_cast<const char*>(rom.data()+12),rom[30]);
     if(pd_ds::companionGame!=DsGame::Unsupported)pd_ds::map=ds_map_art(rom,pd_ds::companionGame);
@@ -982,6 +1080,7 @@ RETRO_API bool retro_load_game(const retro_game_info* info){
       dexArt=ds_dex_art(rom,pd_ds::companionGame);
       pd_ds::icons=ds_party_icons(rom,pd_ds::companionGame);
       pd_ds::hudItemIcons=ds_hud_item_icons(rom,pd_ds::companionGame);
+      ds_battle_set_base_pp(ds_move_base_pp(rom,pd_ds::companionGame));
     }
   }
   const auto old_layout=opt("pokedaisy_ds_layout");
@@ -1043,7 +1142,9 @@ RETRO_API void retro_run(){
       (1u<<RETRO_DEVICE_ID_JOYPAD_LEFT)|(1u<<RETRO_DEVICE_ID_JOYPAD_RIGHT);
     pd_ds::autoRunThisFrame=pd_ds::shell.autoRun && !pd_ds::manualTouch &&
       !pd_ds::pcJob && ds_auto_run(field,pd_ds::buttons&directions,pd_ds::buttons&(1u<<RETRO_DEVICE_ID_JOYPAD_A));
+    const double r0=pd_ds::perfOn?pd_ds::perf_now():0;
     ds_run();
+    if(pd_ds::perfOn){pd_ds::perfRun+=pd_ds::perf_now()-r0;pd_ds::perf_report();}
     pd_ds::update_pc();
     pd_ds::update_fly_call();
     pd_ds::swallowMenuInput=false;

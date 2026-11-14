@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""The FLY ON vehicles (MAKEOVER > FLY ON): an air balloon, a helicopter and a zeppelin the player flies in place of
+"""The FLY ON vehicles (MAKEOVER > FLY ON): an air balloon, a helicopter, a zeppelin and a small plane the player flies in place of
 FREE FLIGHT's bird. Our own pixel art, made here - no game art. Each part is drawn with a colour ramp (dark to light, its
 material's) by a normal lit from the top left, a glint where the light hits square on, then a one-pixel outline in the
 part's own dark (a lighter one on the lit side) - the games' overworld look.
 
+Each is drawn at the games' overworld angle - from the side and a little above: a basket's open top, a rotor's or a
+propeller's spinning disc, the cabin's and the gondola's roofs, wings and fins spread to both sides (the near one bigger).
 Each vehicle has a picture per animation frame (the burner's flame, the rotors, the propeller), facing west
 (pk_flight.c mirrors it going east, as it does the bird). The player is drawn into it from their own overworld sprite:
 only over the pixels marked SEAT (the cockpit glass, a window, the open air over a basket); the pixels marked FRONT (a
@@ -12,7 +14,7 @@ basket's rim, ropes, frames, glints) are drawn again over them.
 Writes app/src/main/cpp/pk_flight_vehicles.h (palettes and indexed frames, a byte a pixel: palette index in the low 6
 bits, FRONT 0x40, SEAT 0x80) and, with --preview DIR, a PNG of every frame at 8x.
 
-Usage: scripts/gen_flight_vehicles.py [--preview DIR]
+Usage: scripts/gen_flight_vehicles.py [--preview DIR [--hero PNG]]
 """
 import os
 import sys
@@ -247,8 +249,18 @@ def balloon(frame):
     ][frame]
     for x, y, k in fl:
         cv.put(x, y, FLAME[k], 'flame', None)
-    # basket: a leather rim over wicker
-    box(cv, 'rim', LEATHER, CX - 9, 49, CX + 8, 50, front=True)
+    # basket, seen a little from above: its open top an oval (the far half of the rim behind the rider, the near half in
+    # front of them), the wicker below it
+    for y in range(46, 53):
+        for x in range(CX - 10, CX + 10):
+            u, v = (x + 0.5 - CX) / 9.0, (y + 0.5 - 49.5) / 2.6
+            d = u * u + v * v
+            if d > 1.0:
+                continue
+            if d > 0.55:
+                cv.put(x, y, LEATHER.ramp[3] if v < 0 else LEATHER.ramp[1], 'rim', LEATHER, front=v >= 0)
+            else:
+                cv.put(x, y, WICKER.ramp[0] if v < 0.3 else WICKER.ramp[1], 'inside', WICKER)
 
     def weave(x, y, u):
         n = (u * 0.7, 0.1, math.sqrt(max(0, 1 - 0.49 * u * u)))
@@ -259,12 +271,12 @@ def balloon(frame):
             k = max(0, k - 2)   # the rim's shadow on the wicker
         return WICKER.ramp[k]
 
-    box(cv, 'basket', WICKER, CX - 8, 51, CX + 7, 56, weave, front=True, round_=2)
+    box(cv, 'basket', WICKER, CX - 8, 52, CX + 7, 56, weave, front=True, round_=2)
     cv.outline(['rim', 'basket'])
-    # the seat: open air between the ropes, over the rim
-    for y in range(35, 49):
+    # the seat: open air between the ropes, and inside the basket's open top (the near rim over the rider's waist)
+    for y in range(35, 52):
         for x in range(CX - 8, CX + 8):
-            if cv.c[y][x] is None or cv.part[y][x] == 'ropeb':
+            if cv.c[y][x] is None or cv.part[y][x] in ('ropeb', 'inside'):
                 cv.seat[y][x] = True
     return cv
 
@@ -276,101 +288,95 @@ DARK = Mat(['#1c2030', '#2c3244'], '#10131c')
 H_GOLD = Mat(['#9a6a14', '#d09a24', '#f4c848'], '#5a3c08')
 BLADE = [(52, 54, 62), (120, 124, 134), (176, 180, 188)]
 
-H_W, H_H = 56, 32
+H_W, H_H = 56, 40
+
+
+def disc(cv, cx, cy, rx, ry, frame, blades=2, thick=1):
+    """A spinning rotor / propeller seen from above at an angle: the blades where they are this frame ([thick] pixels,
+    the extra ones below / beside them a shade lighter), their tips lighter still; drawn over everything (FRONT). No
+    blur dots (they read as grey specks floating round the blades)."""
+    for k in range(blades):
+        ang = math.pi * (frame / 3.0 + k / blades + 1 / 12.0)   # never quite end on: an end-on blade read as a stick
+        across = (0, 1) if abs(math.cos(ang) * rx) >= abs(math.sin(ang) * ry) else (1, 0)
+        for t in range(-40, 41):
+            tt = t / 40.0
+            x = int(round(cx + math.cos(ang) * rx * tt))
+            y = int(round(cy + math.sin(ang) * ry * tt))
+            tip = abs(tt) >= 0.85
+            for j in range(thick):
+                c = BLADE[1] if tip else (BLADE[0] if j == 0 else BLADE[1])
+                cv.put(x + across[0] * j, y + across[1] * j, c, 'blade', None, True)
 
 
 def helicopter(frame):
+    """From the side and a little above: the cabin's roof and the tops of the skids show, the rotor a wide disc."""
     cv = Canvas(H_W, H_H)
     W, H = H_W, H_H
-    cx, cy = 22, 17
-    # tail boom: a tapering tube from the cabin's back to the fin
+    cx, cy = 22, 24
+    # the far skid first (behind the cabin), then the boom, the cabin, the near skid in front
+    for x in range(11, 33):
+        cv.put(x, 31, H_STEEL.ramp[1], 'skidb', H_STEEL)
+    for sx in (15, 28):
+        line(cv, 'strutb', H_STEEL.ramp[0], [(sx + 1, 28), (sx + 2, 31)])
     for x in range(30, 51):
         t = (x - 30) / 20
-        r = 3.2 * (1 - t) + 1.4 * t
-        c = 15.5 - 1.5 * t
+        r = 3.4 * (1 - t) + 1.5 * t
+        c = 22.0 - 5.0 * t
         for y in range(int(c - r) - 1, int(c + r) + 2):
             v = (y + 0.5 - c) / r
             if abs(v) >= 1:
                 continue
-            n = (0.15, v, math.sqrt(1 - v * v))
+            n = (0.15, v - 0.35, math.sqrt(max(0.0, 1 - v * v)))
             cv.put(x, y, BLUE.shade(n), 'boom', BLUE)
-    # tail fin and the small tail plane
-    poly(cv, 'fin', BLUE, [(46, 14), (49, 4), (53, 4), (52, 15)], light=lambda x, y: (-0.4, -0.2, 0.9))
-    poly(cv, 'stab', BLUE, [(43, 16), (51, 16), (52, 18), (45, 18)], light=lambda x, y: (0, 0.5, 0.86))
-    cv.outline(['boom', 'fin', 'stab'])
-    # engine cowling on the cabin's roof
-    ellipsoid(cv, 'cowl', BLUE, 24, 9, 8, 3)
-    cv.outline(['cowl'])
-    # the cabin: a blue egg whose front is glass
+    poly(cv, 'fin', BLUE, [(46, 17), (49, 7), (53, 7), (52, 17)], light=lambda x, y: (-0.4, -0.2, 0.9))
+    # the tail plane seen from above: a flat diamond across the boom
+    poly(cv, 'stab', BLUE, [(44, 16), (50, 13), (53, 15), (47, 20)], light=lambda x, y: (0, -0.8, 0.6))
+    cv.outline(['boom', 'fin', 'stab', 'skidb', 'strutb'])
+    # the cabin: an egg lit from above, its front glass the seat
     def cab(x, y, u, v, n):
-        if u < -0.05 and v < 0.42 and not (u > -0.3 and v < -0.75):
+        if u < 0.12 and -0.85 < v < 0.5:
             cv.seat[y][x] = True
             c = H_GLASS.shade(n, ambient=0.3)
-            # a glint band across the glass
-            if 0 <= (x + y * 0.8) - 21 <= 1.2 and v < 0.2:
-                c = (232, 248, 252)
+            if 0 <= (x + y * 0.8) - 31.5 <= 1.2 and v > 0.2:
+                c = (232, 248, 252)   # a glint low in the glass, under the rider's face
             return c
-        if 0.12 < v < 0.32 and u > -0.05:
-            return H_GOLD.shade(n)   # a stripe down the side
+        if 0.2 < v < 0.4 and u > -0.05:
+            return H_GOLD.shade(n)
+        if v < -0.45:
+            return BLUE.ramp[-1] if u > 0.2 and v < -0.7 else BLUE.ramp[3]   # the roof, lit
         return None
-    ellipsoid(cv, 'cab', BLUE, cx, cy, 13, 9, cab)
-    # mark glints as front (over the player)
+    ellipsoid(cv, 'cab', BLUE, cx, cy, 13, 10, cab)
     for y in range(H):
         for x in range(W):
             if cv.c[y][x] == (232, 248, 252):
                 cv.front[y][x] = True
+                cv.seat[y][x] = False
     cv.outline(['cab'])
-    # the window's frame: glass pixels next to the blue body (not its outline) turn into a dark frame, one pixel wide
-    frame_px = []
-    for y in range(H):
-        for x in range(W):
-            if cv.seat[y][x]:
-                for dx, dy in ((1, 0), (0, 1), (-1, 0), (0, -1)):
-                    xx, yy = x + dx, y + dy
-                    if 0 <= xx < W and 0 <= yy < H and cv.part[yy][xx] == 'cab' and not cv.seat[yy][xx] \
-                            and cv.c[yy][xx] not in (BLUE.outline, BLUE.lit):
-                        frame_px.append((x, y))
-                        break
-    for x, y in frame_px:
-        cv.c[y][x] = DARK.ramp[1]
-        cv.front[y][x] = True
-        cv.seat[y][x] = False
     for y in range(H):
         for x in range(W):
             if cv.seat[y][x] and cv.c[y][x] in (BLUE.outline, BLUE.lit, H_GLASS.outline):
                 cv.seat[y][x] = False
                 cv.front[y][x] = True
-    # a door seam and a little grille on the side
-    line(cv, 'cab', BLUE.ramp[1], [(24, 12), (24, 22)], front=True)
-    for x in (28, 30):
-        cv.put(x, 13, BLUE.ramp[0], 'cab', BLUE, True)
-    # skids: two struts down to a tube with a turned-up front
-    for sx in (15, 28):
-        line(cv, 'strut', H_STEEL.ramp[1], [(sx, 25), (sx - 1, 28)], front=True)
-    for x in range(8, 35):
-        cv.put(x, 28, H_STEEL.ramp[3] if x < 20 else H_STEEL.ramp[2], 'skid', H_STEEL, True)
-        cv.put(x, 29, H_STEEL.ramp[0], 'skid', H_STEEL, True)
-    cv.put(7, 27, H_STEEL.ramp[2], 'skid', H_STEEL, True)
-    cv.put(7, 28, H_STEEL.ramp[1], 'skid', H_STEEL, True)
-    cv.put(6, 26, H_STEEL.ramp[2], 'skid', H_STEEL, True)
+    # the engine cowling on the roof and the mast to the rotor
+    ellipsoid(cv, 'cowl', BLUE, 25, 15, 7, 2.6, lambda x, y, u, v, n: BLUE.ramp[-1] if v < -0.3 else None)
+    cv.outline(['cowl'])
+    for y in range(8, 13):
+        cv.put(25, y, H_STEEL.ramp[2], 'mast', H_STEEL)
+        cv.put(26, y, H_STEEL.ramp[0], 'mast', H_STEEL)
+    # the near skid, in front, and its struts
+    for sx in (14, 29):
+        line(cv, 'strut', H_STEEL.ramp[1], [(sx, 31), (sx - 1, 35)], front=True)
+    for x in range(7, 36):
+        cv.put(x, 35, H_STEEL.ramp[3] if x < 20 else H_STEEL.ramp[2], 'skid', H_STEEL, True)
+        cv.put(x, 36, H_STEEL.ramp[0], 'skid', H_STEEL, True)
+    cv.put(6, 34, H_STEEL.ramp[2], 'skid', H_STEEL, True)
     cv.outline(['skid', 'strut'])
-    # mast and hub
-    for y in (4, 5):
-        cv.put(23, y, H_STEEL.ramp[2], 'mast', STEEL)
-        cv.put(24, y, H_STEEL.ramp[0], 'mast', STEEL)
-    box(cv, 'hub', H_STEEL, 21, 3, 26, 3)
-    # main rotor: the blade end on, three quarters, full (with a faint blur where it was)
-    span = [26, 18, 8][frame]
-    for x in range(23 - span, 24 + span + 1):
-        if 0 <= x < W:
-            edge = abs(x - 23.5) > span - 3
-            cv.put(x, 1, BLADE[2] if not edge else BLADE[1], 'blade', None, True)
-            cv.put(x, 2, BLADE[0], 'blade', None, True)
-    # tail rotor at the fin
-    tr = [[(50, 8), (50, 9), (50, 10), (50, 11), (50, 12)], [(48, 10), (49, 10), (50, 10), (51, 10), (52, 10)], [(48, 8), (49, 9), (50, 10), (51, 11), (52, 12)]][frame]
+    # the rotor: a wide disc over it all, the tail rotor a small one on the fin
+    disc(cv, 25.5, 7, 25, 5, frame, thick=2)
+    tr = [[(50, 9), (50, 10), (50, 11), (50, 12), (50, 13)], [(48, 11), (49, 11), (50, 11), (51, 11), (52, 11)],
+          [(48, 9), (49, 10), (50, 11), (51, 12), (52, 13)]][frame]
     for x, y in tr:
         cv.put(x, y, BLADE[1], 'trotor', None, True)
-    cv.put(50, 10, BLADE[0], 'trotor', None, True)
     return cv
 
 
@@ -380,61 +386,62 @@ CABIN = Mat(['#6a3c1c', '#8c5428', '#b07438', '#d09a54'], '#3c200c', '#6a3c1c')
 GLASS = Mat(['#3a6a88', '#5a94b4', '#84bcd8', '#b4e0f0'], '#1c3040')
 STEEL = Mat(['#3a3e48', '#5c6270', '#8a909c', '#c0c6d0'], '#20242c')
 
-Z_W, Z_H = 60, 40
+Z_W, Z_H = 60, 44
 
 
 def zeppelin(frame):
+    """From the side and a little above: the envelope lit along its top, the tail's fins spread to both sides (the far one
+    up behind, the near one down in front), the gondola's roof and its windows."""
     cv = Canvas(Z_W, Z_H)
     W, H = Z_W, Z_H
-    cx, cy, rx, ry = 27, 12, 25.5, 9.6
-    # tail fins (behind the envelope's tail): top, bottom, and the side one seen edge on
-    poly(cv, 'fin', Z_RED, [(44, 6), (50, 1), (56, 1), (55, 8)], light=lambda x, y: (-0.3, -0.4, 0.86))
-    poly(cv, 'fin', Z_RED, [(44, 18), (50, 23), (56, 23), (55, 16)], light=lambda x, y: (-0.3, 0.4, 0.86))
-    poly(cv, 'fin', Z_RED, [(46, 11), (57, 10), (57, 13), (46, 13)], light=lambda x, y: (0, -0.2, 0.98))
+    cx, cy, rx, ry = 27, 13, 25.5, 9.6
+    # the far side fin (behind the envelope) and the top fin
+    poly(cv, 'fin', Z_RED, [(44, 9), (52, 3), (57, 3), (54, 10)], light=lambda x, y: (-0.3, -0.6, 0.7))
+    poly(cv, 'fin', Z_RED, [(46, 7), (51, 0), (56, 0), (55, 7)], light=lambda x, y: (-0.3, -0.4, 0.86))
     cv.outline(['fin'])
 
     def skin(x, y, u, v, n):
         m = SILVER
-        if -0.12 < v < 0.14:
-            m = Z_RED          # a red band the length of it
+        if 0.05 < v < 0.3:
+            m = Z_RED          # a red band the length of it, a little below the middle: we see more of the top
         col = m.shade(n, ambient=0.2)
         k = m.ramp.index(col)
-        # panel seams: rings every few pixels, a shade darker
         lon = math.asin(max(-1, min(1, u)))
         if abs(((lon + math.pi / 2) / (math.pi / 9)) % 1 - 0.5) > 0.42 and abs(u) < 0.92 and m is SILVER:
             k = max(0, k - 1)
         if u < -0.9:
-            k = max(0, k - 1)   # the nose cap
-        if (u + 0.45) ** 2 * 3 + (v + 0.5) ** 2 < 0.05:
-            k = len(m.ramp) - 1   # glint
+            k = max(0, k - 1)
+        if v < -0.55 and abs(u) < 0.8:
+            k = min(len(m.ramp) - 1, k + 1)   # the top, in the light
+        if (u + 0.45) ** 2 * 3 + (v + 0.55) ** 2 < 0.05:
+            k = len(m.ramp) - 1
         return m.ramp[k]
 
     ellipsoid(cv, 'env', SILVER, cx, cy, rx, ry, skin)
     cv.outline(['env'])
-    # the gondola: a cabin under the envelope with big windows
+    # the near side fin, in front of the envelope's tail
+    poly(cv, 'finn', Z_RED, [(44, 17), (55, 16), (59, 23), (51, 23)], light=lambda x, y: (-0.2, -0.7, 0.7), front=True)
+    cv.outline(['finn'])
+    # the gondola: its roof seen from above (lighter), then its front with the windows
+    def roof(x, y, u):
+        return CABIN.ramp[3] if y < 23 else CABIN.ramp[2]
+    box(cv, 'cabin', CABIN, 16, 21, 38, 23, roof)
     def cabin(x, y, u):
-        n = (u * 0.7, 0.1 if y > 23 else -0.4, math.sqrt(max(0, 1 - 0.49 * u * u)))
+        n = (u * 0.7, 0.1, math.sqrt(max(0, 1 - 0.49 * u * u)))
         return CABIN.shade(n)
-    box(cv, 'cabin', CABIN, 15, 21, 37, 38, cabin, round_=2)
-    # its shadow under the envelope
-    for x in range(16, 37):
-        if cv.part[21][x] == 'cabin':
-            cv.c[21][x] = CABIN.ramp[0]
+    box(cv, 'cabin', CABIN, 15, 24, 37, 39, cabin, round_=2)
     cv.outline(['cabin'])
-    # windows: three panes, the middle one wide (the player stands there)
-    for (x0, x1) in ((17, 20), (22, 31), (33, 35)):
-        for y in range(23, 35):
+    for (x0, x1) in ((17, 19), (21, 31), (33, 35)):
+        for y in range(26, 38):
             for x in range(x0, x1 + 1):
-                n = (0.0, (y - 28) / 7, 0.9)
+                n = (0.0, (y - 31) / 7, 0.9)
                 cv.put(x, y, GLASS.shade(n, ambient=0.35), 'win', GLASS)
-                cv.seat[y][x] = (x0 == 22)
-        # a glint, and the sill's shadow
+                cv.seat[y][x] = (x0 == 21)
         for k in range(3):
-            if x0 + k + 1 <= x1:
-                cv.put(x0 + k + 1, 24 + k, (232, 248, 252), 'win', GLASS, True)
-                cv.seat[24 + k][x0 + k + 1] = False
-    # the panes' frames are the cabin's colour: a dark line round each
-    for y in range(22, 36):
+            if x0 + k + 1 <= x1 and x0 != 21:
+                cv.put(x0 + k + 1, 27 + k, (232, 248, 252), 'win', GLASS, True)
+                cv.seat[27 + k][x0 + k + 1] = False
+    for y in range(25, 39):
         for x in range(16, 37):
             if cv.part[y][x] == 'cabin':
                 for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -443,16 +450,11 @@ def zeppelin(frame):
                         cv.c[y][x] = CABIN.ramp[0]
                         cv.front[y][x] = True
                         break
-    # a rail of studs along the cabin's bottom, and the engine pod with its propeller behind
     for x in range(17, 36, 3):
-        cv.put(x, 36, CABIN.ramp[3], 'cabin', CABIN, True)
-    ellipsoid(cv, 'pod', STEEL, 40, 30, 3, 2)
+        cv.put(x, 38, CABIN.ramp[3], 'cabin', CABIN, True)
+    ellipsoid(cv, 'pod', STEEL, 40, 33, 3, 2)
     cv.outline(['pod'])
-    prop = [[(43, y) for y in range(26, 35)], [(43, y) for y in range(28, 33)]][frame]
-    for x, y in prop:
-        cv.put(x, y, BLADE[1], 'prop', None, True)
-    cv.put(43, 30, BLADE[0], 'prop', None, True)
-    cv.put(44, 30, BLADE[2], 'prop', None, True)
+    disc(cv, 44, 33, 1.6, 5, frame, blades=1)
     for y in range(H):
         for x in range(W):
             if cv.part[y][x] in ('cabin', 'env', 'fin', 'pod'):
@@ -460,19 +462,102 @@ def zeppelin(frame):
     return cv
 
 
+P_BODY = Mat(['#8a5a10', '#c08818', '#e8b828', '#f8d850', '#fcf0a0'], '#4c3008', '#8a5a10')
+P_TRIM = Mat(['#7a1c22', '#a8282a', '#d0403a', '#ec6450', '#f89a80'], '#4c1018', '#7a1c22')
+P_GLASS = Mat(['#3a6a88', '#5a94b4', '#84bcd8', '#b4e0f0'], '#1c3040')
+P_TYRE = Mat(['#1c1e24', '#30343c', '#484c56'], '#0c0e12')
+
+P_W, P_H = 60, 44
+
+
+def plane(frame):
+    """A small, chunky propeller plane from the side and a little above: a round body, its wings spread out (the far one
+    up behind the body, the near one down in front of it, bigger: nearer), the tail plane the same, a tall bubble canopy
+    (the seat, the rider's head and shoulders in it), a spinning propeller at the nose; its wheels tucked away in flight."""
+    cv = Canvas(P_W, P_H)
+    W, H = P_W, P_H
+    top_lit = lambda x, y: (0.15, -0.3, 0.94)
+    # far wing and far tail plane, behind the body
+    poly(cv, 'wingb', P_TRIM, [(19, 20), (33, 20), (35, 7), (27, 7)], light=lambda x, y: (0.1, -0.5, 0.8))
+    poly(cv, 'tailb', P_TRIM, [(46, 19), (54, 19), (56, 13), (52, 13)], light=lambda x, y: (0.1, -0.5, 0.8))
+    cv.outline(['wingb', 'tailb'])
+    # the fuselage: round at the nose, tapering to the tail, lit along its top, a red line down its side
+    def body(x, y, u, v, n):
+        if 0.22 < v < 0.5 and x > 9:
+            return P_TRIM.shade(n)
+        if v < -0.5:
+            return P_BODY.ramp[-1] if v < -0.8 else P_BODY.ramp[3]
+        return None
+    taper = lambda x, y: not (x > 36 and abs(y + 0.5 - 21) > 7.0 - (x - 36) * 0.19)
+    ellipsoid(cv, 'body', P_BODY, 29, 21, 25, 7.0, body, clip=taper)
+    poly(cv, 'fin', P_TRIM, [(46, 18), (51, 6), (57, 6), (56, 18)], light=lambda x, y: (-0.4, -0.2, 0.9))
+    cv.outline(['body', 'fin'])
+    # the canopy on top, the seat
+    def glass(x, y, u, v, n):
+        cv.seat[y][x] = True
+        c = P_GLASS.shade(n, ambient=0.3)
+        if 0 <= (x - y * 0.9) - 11.5 <= 1.2 and v < -0.2 and x > 26:
+            c = (232, 248, 252)   # a glint on the canopy's back, behind the rider's head
+        return c
+    ellipsoid(cv, 'canopy', P_GLASS, 21.5, 15, 8, 7.5, glass, clip=lambda x, y: y <= 20)
+    for y in range(H):
+        for x in range(W):
+            if cv.c[y][x] == (232, 248, 252):
+                cv.front[y][x] = True
+                cv.seat[y][x] = False
+    cv.outline(['canopy'])
+    for y in range(H):
+        for x in range(W):
+            if cv.part[y][x] == 'canopy' and cv.c[y][x] in (P_GLASS.outline, P_GLASS.lit):
+                cv.seat[y][x] = False
+                cv.front[y][x] = True
+    # the near wing and tail plane, in front of the body, their tops in the light
+    poly(cv, 'wing', P_TRIM, [(17, 24), (33, 24), (40, 41), (27, 41)], light=top_lit, front=True)
+    for y in range(25, 41):
+        x = 17 + (y - 24) * 10 // 17 + 2
+        cv.put(x, y, P_TRIM.ramp[-1], 'wing', P_TRIM, True)   # a lit leading edge
+        cv.put(x + 1, y, P_TRIM.ramp[-1], 'wing', P_TRIM, True)
+    poly(cv, 'tail', P_TRIM, [(45, 23), (54, 23), (58, 31), (51, 31)], light=top_lit, front=True)
+    cv.outline(['wing', 'tail'])
+    # the spinner and the propeller
+    ellipsoid(cv, 'spinner', P_TRIM, 4.5, 21, 2.6, 3.2, front=True)
+    cv.outline(['spinner'])
+    propeller(cv, 2, 21, 9, frame)
+    for y in range(H):
+        for x in range(W):
+            if cv.part[y][x] in ('body', 'fin'):
+                cv.front[y][x] = True
+    return cv
+
+
+def propeller(cv, x, cy, r, frame):
+    """A two-bladed propeller at the nose, seen from the side (its disc edge on): the blade upright at full length, then
+    shorter (turning toward us), then a stub at the hub (edge on), then shorter again - four frames that read as a spin.
+    No blur specks round it. Drawn over everything (FRONT)."""
+    half = [r, r * 2 // 3, 2, r * 2 // 3][frame]
+    line(cv, 'prop', BLADE[0], [(x, cy - half), (x, cy + half)], front=True)
+    if half > 2:
+        line(cv, 'prop', BLADE[1], [(x - 1, cy - half + 1), (x - 1, cy + half - 1)], front=True)
+    cv.put(x, cy - half, BLADE[1], 'prop', None, True)   # its tips a shade lighter
+    cv.put(x, cy + half, BLADE[1], 'prop', None, True)
+
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "../app/src/main/cpp/pk_flight_vehicles.h")
 SIZE = 64   # pk_flight.c's FL_SRC: a picture fits 64 x 64 around its anchor
 
 # name, frames, the sequence of frames (one per [ticks] game frames), the player's sprite's top left (its 16 x 32 frame:
-# a hero's cap starts 13 rows down), the art point drawn at the bird's place, its lean (share of the heading, at most).
+# a hero's cap starts 13 rows down), the art point drawn at the bird's place, its lean (share of the heading, at most),
+# whether the rider turns to the back / front going up / down (the balloon's open basket; else always from the side).
 VEHICLES = [
     dict(name="BALLOON", build=balloon, frames=3, sequence=[0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 2, 2, 1, 0], ticks=4,
-         player=(8, 23), anchor=(16, 32), turn=(0.0, 0.0)),
+         player=(8, 23), anchor=(16, 32), turn=(0.0, 0.0), upDown=True),
     dict(name="HELICOPTER", build=helicopter, frames=3, sequence=[0, 1, 2, 1], ticks=2,
-         player=(7, -4), anchor=(24, 16), turn=(0.3, 0.26)),
+         player=(11, 3), anchor=(24, 20), turn=(0.3, 0.26)),
     dict(name="ZEPPELIN", build=zeppelin, frames=2, sequence=[0, 1], ticks=3,
-         player=(18, 10), anchor=(28, 22), turn=(0.2, 0.1)),
+         player=(20, 13), anchor=(28, 22), turn=(0.2, 0.1)),
+    dict(name="PLANE", build=plane, frames=4, sequence=[0, 1, 2, 3], ticks=2,
+         player=(14, -3), anchor=(28, 21), turn=(0.3, 0.26)),
 ]
 
 
@@ -522,6 +607,7 @@ def write_header():
         "    int playerX, playerY;         // the player's sprite (16 x 32), its top left in the picture",
         "    int anchorX, anchorY;         // drawn at the bird's place",
         "    float turnShare, turnMax;     // its lean: a share of the heading's angle, at most (radians)",
+        "    int upDown;                   // the rider shown from behind / the front going up / down (else from the side)",
         "};",
         "",
     ]
@@ -545,7 +631,7 @@ def write_header():
         ax, ay = v["anchor"]
         ts, tm = v["turn"]
         rows.append(f"    {{ {w}, {h}, {v['frames']}, pk_vehicle_{n}_pixels, pk_vehicle_{n}_palette, pk_vehicle_{n}_sequence, "
-                    f"{len(v['sequence'])}, {v['ticks']}, {px0}, {py0}, {ax}, {ay}, {ts}f, {tm}f }},   // {v['name']}")
+                    f"{len(v['sequence'])}, {v['ticks']}, {px0}, {py0}, {ax}, {ay}, {ts}f, {tm}f, {1 if v.get('upDown') else 0} }},   // {v['name']}")
     lines.append("// PK_FLIGHT_VEHICLE's values from 1 (0 = the game's bird)")
     lines.append("static const struct pk_flight_vehicle pk_flight_vehicles[] = {")
     lines += rows
@@ -558,17 +644,25 @@ def write_header():
     print(f"wrote {OUT}")
 
 
-def preview(d):
+def preview(d, hero=None):
+    """Every frame at 8x; with [hero] (a 16 x 32 PNG of a hero standing, facing west, clear around it) seated in it the way
+    pk_flight.c's flSeatPlayer does: over SEAT pixels only, FRONT pixels over them again."""
     from PIL import Image
     os.makedirs(d, exist_ok=True)
+    hp = Image.open(hero).convert("RGBA").load() if hero else None
     for v in VEHICLES:
         for f in range(v["frames"]):
             cv = v["build"](f)
             im = Image.new("RGB", (cv.w * 8, cv.h * 8), (120, 176, 96))
             p = im.load()
+            px0, py0 = v["player"]
             for y in range(cv.h):
                 for x in range(cv.w):
-                    c = cv.c[y][x] or ((150, 196, 120) if cv.seat[y][x] else None)
+                    c = cv.c[y][x] or ((150, 196, 120) if cv.seat[y][x] and not hp else None)
+                    if hp and cv.seat[y][x] and not cv.front[y][x] and 0 <= x - px0 < 16 and 0 <= y - py0 < 32:
+                        h = hp[x - px0, y - py0]
+                        if h[3]:
+                            c = h[:3]
                     if c is None:
                         continue
                     for yy in range(8):
@@ -579,5 +673,5 @@ def preview(d):
 
 if __name__ == "__main__":
     if "--preview" in sys.argv:
-        preview(sys.argv[sys.argv.index("--preview") + 1])
+        preview(sys.argv[sys.argv.index("--preview") + 1], sys.argv[sys.argv.index("--hero") + 1] if "--hero" in sys.argv else None)
     write_header()

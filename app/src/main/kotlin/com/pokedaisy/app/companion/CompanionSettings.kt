@@ -100,9 +100,19 @@ interface CompanionSettings {
     val dsGpuAvailable: Boolean get() = true
     fun setDsResolution(scale: Int) {}
 
+    /** DS CORE ([com.pokedaisy.app.Prefs.dsCore]): null when the game isn't a DS one (no row); taken at the game's next
+     * start. [dsMelonDs]: the game runs on melonDS - on DSperate DS RESOLUTION and DS CPU BOOST are greyed out. */
+    val dsCore: DsCore? get() = null
+    fun setDsCore(core: DsCore) {}
+    val dsMelonDs: Boolean get() = true
+
     /** DS CPU BOOST ([com.pokedaisy.app.Prefs.dsCpuBoost]): null when the game isn't a DS one (no row). */
     val dsCpuBoost: Boolean? get() = null
     fun setDsCpuBoost(on: Boolean) {}
+
+    /** DS TOUCH SCREEN ([com.pokedaisy.app.Prefs.dsTouchFill]): null when there's no row (not a DS game on two screens). */
+    val dsTouchFill: Boolean? get() = null
+    fun setDsTouchFill(on: Boolean) {}
 
     /** DS LAYOUT ([com.pokedaisy.app.Prefs.dsLayout]): null when there's no row (not a DS game, or one on two screens). */
     val dsLayout: DsLayout? get() = null
@@ -131,6 +141,9 @@ interface CompanionSettings {
     fun setPlayerLook(look: String?) {}
     /** A PLAYER LOOK pick's name as the row and its tile show it (a hero's, or a Pokémon's in the game). */
     fun playerLookLabel(name: String): String = com.pokedaisy.app.companion.data.LookChar.byName(name)?.label ?: name
+    /** MAKEOVER > RIDE ON (where [playerLookSupported]): the game's bike, or one of our vehicles in its place. */
+    val rideVehicle: com.pokedaisy.app.companion.data.RideVehicle get() = com.pokedaisy.app.companion.data.RideVehicle.BIKE
+    fun setRideVehicle(v: com.pokedaisy.app.companion.data.RideVehicle) {}
     /** RIVAL LOOK: the rival of the other gender ([rivalLookSupported]: Emerald, Ruby, Sapphire) dressed up with the player. */
     val rivalLookSupported: Boolean get() = false
     val rivalLook: Boolean get() = true
@@ -249,6 +262,13 @@ interface CompanionSettings {
     /** SETTINGS > DISCORD: opens PokeDaisy's Discord server ([Discord.URL]) in the browser or the Discord app. */
     fun openDiscord() {}
 
+    /** The running game is one its makers asked PokéDaisy not to read ([com.pokedaisy.app.companion.data.BlockedGames]):
+     * SETTINGS shows the emulator's rows only. */
+    val gameBlocked: Boolean get() = false
+
+    /** Opens a web link ([url]) in the browser - a blocked game's button ([com.pokedaisy.app.companion.data.BlockedAction]). */
+    fun openUrl(url: String) {}
+
     /** Whether battle-only strategic hints (move effectiveness chips, foe
      * Weak-to/Resists/Immune-to) are shown — see [Prefs.showHints]. */
     val showHints: Boolean
@@ -275,6 +295,13 @@ interface CompanionSettings {
     /** BATTLE VIEW - see [com.pokedaisy.app.Prefs.battleInfoFirst]. */
     val battleInfoFirst: Boolean get() = false
     fun setBattleInfoFirst(on: Boolean) {}
+    /** BATTLE VIEW > SUGGESTIONS - see [com.pokedaisy.app.Prefs.battleSuggestionsFirst]. */
+    val battleSuggestionsFirst: Boolean get() = false
+    fun setBattleSuggestionsFirst(on: Boolean) {}
+
+    /** CHALLENGE ICONS - see [com.pokedaisy.app.Prefs.raIcons]. */
+    val raIcons: Boolean get() = true
+    fun setRaIcons(on: Boolean) {}
 
     /** ONE-TAP MOVES - see [Prefs.oneTapMoves]. */
     val oneTapMoves: Boolean get() = false
@@ -344,6 +371,14 @@ interface CompanionSettings {
     /** FPS / CPU over the game's corner - see [Prefs.showPerformance]. */
     val showPerformance: Boolean get() = false
     fun setShowPerformance(on: Boolean) {}
+
+    /** RetroAchievements popups - see [Prefs.raPopups]. The top screen's Settings > RetroAchievements has the same
+     * switches; off also mutes the unlock fanfare. */
+    val raPopups: Boolean get() = true
+    fun setRaPopups(on: Boolean) {}
+    /** RetroAchievements PROGRESS popups only - see [Prefs.raProgressPopups]; [raPopups] off hides these too. */
+    val raProgressPopups: Boolean get() = true
+    fun setRaProgressPopups(on: Boolean) {}
 
     /** How the game sits on the top screen: 3:2, stretched or WIDE - see [Prefs.gameAspect]. */
     val gameAspect: GameAspect

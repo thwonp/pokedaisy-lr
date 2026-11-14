@@ -127,6 +127,9 @@ enum {
     PK_FIELD_WILD_HELD = 32, // WILD ENCOUNTERS set the game's switch: keep calling until it's put back
     PK_FIELD_SURF = 64,      // surfing (or diving)
     PK_FIELD_AVATAR = 128,   // the bike / surf bits are the game's own player state (FIELD SPEED can trust them)
+    // A window on the field's text layer with the controls free: a START menu that doesn't lock them (Recharged Yellow's;
+    // GitHub #610: AUTO-RUN's B closed it on UP / DOWN). Past the DS games' bits, which share MgbaCore's FIELD_* names.
+    PK_FIELD_WINDOW = 262144,
 };
 
 /** WILD ENCOUNTERS: the game's sWildEncountersDisabled (EWRAM, found in the ROM by WildEncounters.kt; 0 = none). Call
@@ -182,6 +185,8 @@ void pk_wide_lines(int on);
  * window over the game's tile steps and moves the bird with it (pk_wide.c's flyBegin): the view at the velocity the
  * flight means ([vx], [vy]: px a frame, east / south +), pulled toward the real camera. */
 void pk_wide_flight(int on, const uint16_t* tiles, int n, double vx, double vy);
+/** After each frame, on a core whose renderer can't be hooked (the 3DS's armGBA): the flight's glide for that frame. */
+void pk_wide_after_frame(struct mCore* core);
 /** The offset flyBegin gave the last frame (mgba_dump's `flightinfo`). */
 void pk_wide_flight_offset(int* dx, int* dy);
 /** Where that put the view, in pixels from where the flight started (mgba_dump's `flightinfo`: how even the glide is). */
@@ -241,6 +246,17 @@ void pk_follower_show(struct mCore* core, int on);
 
 /** FOLLOWER: its state as text (mgba_dump's followinfo). */
 void pk_follower_info(char* out, int n);
+/** RIDE ON: the vehicle (PK_RIDE_BYTES: its three views - south, north, west; 1024 bytes each in OBJ tile order: 32 x 64
+ * for w 32, 64 x 32 for w 64 - then its exhaust smoke, PK_RIDE_SMOKE_FRAMES 16 x 8 frames of two tiles, six from the side
+ * and six from behind, then the smoke's place per view: x, y signed bytes, -128 none, and two spare bytes; RideOn.Sprite)
+ * and palette (32 bytes), or NULL; drawn behind the player while they're on a bike and [on] (pk_ride_show). */
+#define PK_RIDE_SMOKE_FRAMES 12
+#define PK_RIDE_BYTES (3 * 1024 + PK_RIDE_SMOKE_FRAMES * 64 + 8)
+void pk_ride_set(const uint8_t* frames, const uint8_t* pal, int w);
+/** The map's scroll (BG2HOFS / VOFS) as the frame just run was drawn - FREE FLIGHT's clouds follow it. */
+void pk_wide_bg2_scroll(struct mCore* core, int* h, int* v);
+void pk_ride_show(struct mCore* core, int on);
+void pk_ride_info(char* out, int n);
 
 /** A game closed: FOLLOWER (its sprite, shown or not) and DAY AND NIGHT's tint go back to none, so the next game starts
  * without the last one's (they live here, not in the core, and the next game's engine starts from none). */

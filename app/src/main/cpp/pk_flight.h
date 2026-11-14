@@ -119,8 +119,19 @@ int pk_flight_state(void);
 /** After every frame: the flight's next step. Reads the core's keys (D-pad to fly, A held faster, B to land). */
 void pk_flight_tick(struct mCore* core);
 /** After every frame, before it's shown: the shadow under the bird, drawn into the finished [frame] (w x h pixels,
- * [stride] a row, mGBA's 32-bit colour). */
-void pk_flight_draw(uint32_t* frame, int w, int h, int stride);
+ * [stride] a row, mGBA's 32-bit colour), then the clouds while up ([cloudsHere]; 0 = EXPAND draws its picture from this
+ * frame next, and pk_flight_draw_wide puts them over all of it), then the bird. */
+void pk_flight_draw(uint32_t* frame, int w, int h, int stride, int cloudsHere);
+/** EXPAND's picture made (pk_wide_view's [out], w x h, its window at (vx, vy) of the frame): the clouds over all of it, but
+ * the bird's pixels. */
+void pk_flight_draw_wide(uint32_t* out, int w, int h, int vx, int vy);
+/** The clouds over EXPAND's margins only, where pk_flight_draw put them into the frame itself ([cloudsHere] 1: a 3DS,
+ * whose EXPAND may leave the frame's rectangle to the GPU or draw the margins later on another thread). Planned right
+ * after pk_wide_view on the emulator's thread (its window at (vx, vy) of the [fw] x [fh] frame), drawn into its [out]
+ * (w x h) once that's whole, on any thread: the plan holds everything the drawing reads. Strength 0 = no clouds. */
+struct PkFlightClouds { double strength; int ox, oy, fx, fy, fw, fh; };
+void pk_flight_clouds_plan(struct PkFlightClouds* c, int vx, int vy, int fw, int fh);
+void pk_flight_clouds_margins(const struct PkFlightClouds* c, uint32_t* out, int w, int h);
 /** A new game / reset: forget everything (the game's RAM is gone). */
 void pk_flight_reset(void);
 /** mgba_dump's `flightinfo`. */

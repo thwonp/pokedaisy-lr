@@ -4,11 +4,17 @@
 the ROM from its own folder. It uses `pokedaisy_gba_libretro.so` for `.gba` (armGBA, `libretro/armgba/`),
 `pokedaisy_gbc_libretro.so` for `.gb` / `.gbc` (mGBA, `libretro/`), or `pokedaisy_ds_libretro.so` for `.nds`
 (DSperate, `linux/libretro-ds/`), and shows what the core draws. So the companion,
-the HUD, the quick menu (PC, FLY, REPEL, BIKE, WILD ENCOUNTERS), EXPAND and every companion setting are the cores'
+the HUD, the quick menu (PC, FLY, TAKE OFF, FLASH, REPEL, BIKE, WILD ENCOUNTERS), EXPAND and every companion setting are the cores'
 own, the same as on any other frontend, and a change to them reaches this executable with the next core build.
 
 The host owns what a frontend owns: input, sound, pacing, the battery save and its backups, save states,
 fast-forward, rewind, the LCD mask and the game list.
+
+The step-by-step install guide for players is [INSTALL.md](INSTALL.md), in every language the app has: [日本語](INSTALL.ja.md),
+[한국어](INSTALL.ko.md), [Français](INSTALL.fr.md), [Deutsch](INSTALL.de.md), [Italiano](INSTALL.it.md),
+[Español](INSTALL.es.md), [Português (Brasil)](INSTALL.pt-br.md), [Português (Portugal)](INSTALL.pt.md). It's made from the
+manual's `docs/manual/linux-install.md` and its translations (also on pokedaisy.com/docs/linux-install/) by
+`website/scripts/install-guides.mjs`: edit the manual, then run that.
 
 ## Native build
 
@@ -142,8 +148,9 @@ are in NOTICE and the packaged licenses (mGBA, and armGBA and zlib for the GBA c
 
 The bundled DS core starts in its One Screen layout. L2 opens the Companion and R2 switches screens by default.
 Hold L2 to open Quick Menu. With SELECT as the host modifier, SELECT + Y toggles stylus mode and SELECT + D-pad/A
-moves or taps the stylus. DS host actions can be rebound separately in HOTKEYS. Companion Settings → HUD SIZE switches
-between MINI and LARGE. MINIMAL HUD controls which HUD elements are shown.
+moves or taps the stylus. DS host actions can be rebound separately in HOTKEYS (SELECT + R2 / L2 by default; with
+the modifier off they move to R3 / L3, since bare R2 / L2 belong to the core). Companion Settings → HUD opens the shared HUD
+page (on or off, LOOK, SIZE and each part), as on the GB and GBA cores. MINIMAL HUD hides the party cards.
 
 To bring over an existing DS battery save, copy its raw save data to `DATA/saves/<game>.nds.sav` (including the
 ROM extension in the name), or pass its path with `--save`.

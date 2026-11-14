@@ -109,9 +109,12 @@ fun gameText(code: String): GameText? = when (code) {
     UNBOUND_FR_TEXT -> UNBOUND_FR
     KAIZO_TEXT -> EMERALD_KAIZO
     "APSD" -> YELLOW_DE_TEXT
+    "APAD", "APED" -> RED_BLUE_DE_TEXT
     "APSF" -> YELLOW_FR_TEXT
     "APSI" -> YELLOW_IT_TEXT
     "APSS" -> YELLOW_ES_TEXT
+    "BYTD" -> CRYSTAL_DE_TEXT
+    "AAUD", "AAXD" -> GOLD_SILVER_DE_TEXT
     LEGACY_TEXT -> EMERALD_LEGACY
     else -> RETAIL_PORT_TEXTS[code]?.let { make -> portTexts.getOrPut(code, make) }
 }
